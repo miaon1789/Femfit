@@ -1,0 +1,26 @@
+# Render Blueprint —— 部署 FemFit 后端（Hono on Node）
+# 用法：在 Render 控制台 New → Blueprint，指向本仓库；secret 类环境变量在控制台手动填。
+services:
+  - type: web
+    name: femfit-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: AI_PROVIDER
+        value: claude
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
