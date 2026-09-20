@@ -6,6 +6,7 @@ import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
 import usersRouter from './routes/users.js'
 import aiRouter from './routes/ai.js'
+import foodsRouter from './routes/foods.js'
 
 const app = new Hono()
 
@@ -24,6 +25,7 @@ app.get('/health', (c) => c.json({ status: 'ok', service: 'femfit-backend', ts: 
 
 app.route('/api/users', usersRouter)
 app.route('/api/ai', aiRouter)
+app.route('/api/foods', foodsRouter)
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not found' }, 404))

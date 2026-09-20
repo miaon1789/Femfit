@@ -37,49 +37,46 @@ export function useFoodLogs(date: string) {
 
   useEffect(() => { fetch() }, [fetch])
 
-  const addFoodEntry = async (mealType: MealType, payload: AddFoodPayload) => {
-    if (!user) return
-
-    // 查找或创建 meal_log
-    let mealLog = meals.find((m) => m.meal_type === mealType)
+  const addFoodEntries = async (mealType: MealType, payloads: AddFoodPayload[]) => {
+    if (!user) throw new Error('unauthorized')
+    if (!payloads.length) return
+    // Read the current meal from the server: sequential AI/bulk saves must not use stale React state.
+    const { data: existing, error: lookupError } = await supabase.from('meal_logs').select('*')
+      .eq('user_id', user.id).eq('date', date).eq('meal_type', mealType).order('created_at').limit(1).maybeSingle()
+    if (lookupError) throw lookupError
+    let mealLog = existing as MealLog | null
     if (!mealLog) {
-      const { data, error } = await supabase
-        .from('meal_logs')
-        .insert({ user_id: user.id, date, meal_type: mealType })
-        .select()
-        .single()
+      const { data, error } = await supabase.from('meal_logs')
+        .insert({ user_id: user.id, date, meal_type: mealType }).select().single()
       if (error) throw error
-      mealLog = { ...(data as MealLog), food_entries: [] }
+      mealLog = data as MealLog
     }
-
-    // 插入 food_entry
-    const { data: entry, error } = await supabase
-      .from('food_entries')
-      .insert({
-        meal_log_id: mealLog.id,
-        food_name: payload.food_name,
-        quantity: payload.quantity,
-        unit: payload.unit,
-        calories: payload.calories,
-        protein_g: payload.protein_g ?? 0,
-        carbs_g: payload.carbs_g ?? 0,
-        fat_g: payload.fat_g ?? 0,
-        fiber_g: 0,
-        iron_mg: 0,
-      })
-      .select()
-      .single()
+    const { data: entries, error } = await supabase.from('food_entries').insert(payloads.map(payload => ({
+      meal_log_id: mealLog!.id, food_name: payload.food_name, quantity: payload.quantity, unit: payload.unit,
+      calories: payload.calories, protein_g: payload.protein_g ?? 0, carbs_g: payload.carbs_g ?? 0,
+      fat_g: payload.fat_g ?? 0, fiber_g: 0, iron_mg: 0,
+    }))).select()
     if (error) throw error
-
-    setMeals((prev) => {
-      const idx = prev.findIndex((m) => m.meal_type === mealType)
-      if (idx >= 0) {
-        const next = [...prev]
-        next[idx] = { ...next[idx], food_entries: [...next[idx].food_entries, entry as FoodEntry] }
-        return next
-      }
-      return [...prev, { ...mealLog!, food_entries: [entry as FoodEntry] }]
+    setMeals(prev => {
+      const idx = prev.findIndex(m => m.id === mealLog!.id)
+      if (idx < 0) return [...prev, { ...mealLog!, food_entries: entries as FoodEntry[] }]
+      return prev.map((m, i) => i === idx ? { ...m, food_entries: [...m.food_entries, ...entries as FoodEntry[]] } : m)
     })
+  }
+  const addFoodEntry = (mealType: MealType, payload: AddFoodPayload) => addFoodEntries(mealType, [payload])
+
+  const copyPreviousMeal = async (mealType: MealType): Promise<boolean> => {
+    if (!user) throw new Error('unauthorized')
+    const { data, error } = await supabase.from('meal_logs').select('*, food_entries!inner(*)')
+      .eq('user_id', user.id).eq('meal_type', mealType).lt('date', date)
+      .order('date', { ascending: false }).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (error) throw error
+    if (!data) return false
+    await addFoodEntries(mealType, (data.food_entries as FoodEntry[]).map(e => ({
+      food_name: e.food_name, quantity: Number(e.quantity), unit: e.unit, calories: Number(e.calories),
+      protein_g: Number(e.protein_g), carbs_g: Number(e.carbs_g), fat_g: Number(e.fat_g),
+    })))
+    return true
   }
 
   const deleteFoodEntry = async (entryId: string, mealType: MealType) => {
@@ -99,13 +96,9 @@ export function useFoodLogs(date: string) {
     meals.reduce((sum, m) => sum + m.food_entries.reduce((s, e) => s + Number(e.calories), 0), 0)
   )
 
-  const mealCalories = (mealType: MealType) => {
-    const m = meals.find((x) => x.meal_type === mealType)
-    return m ? Math.round(m.food_entries.reduce((s, e) => s + Number(e.calories), 0)) : 0
-  }
-
   const entriesFor = (mealType: MealType): FoodEntry[] =>
-    meals.find((m) => m.meal_type === mealType)?.food_entries ?? []
+    meals.filter(m => m.meal_type === mealType).flatMap(m => m.food_entries)
+  const mealCalories = (mealType: MealType) => Math.round(entriesFor(mealType).reduce((sum, e) => sum + Number(e.calories), 0))
 
-  return { meals, loading, addFoodEntry, deleteFoodEntry, totalCalories, mealCalories, entriesFor, refetch: fetch }
+  return { meals, loading, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor, refetch: fetch }
 }

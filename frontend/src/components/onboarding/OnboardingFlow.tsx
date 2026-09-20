@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -309,8 +310,8 @@ function CycleStep({
   }
 
   // Limit date picker to past 60 days
-  const today = new Date().toISOString().split('T')[0]
-  const minDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const today = dayjs().format('YYYY-MM-DD')
+  const minDate = dayjs().subtract(60, 'day').format('YYYY-MM-DD')
 
   const regularOptions = [
     { value: true, label: t('onboarding.regular'), desc: t('onboarding.regularDesc') },

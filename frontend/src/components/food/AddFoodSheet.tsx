@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { searchFoodDatabase, FOOD_CATEGORY_KEY, type FoodDbItem } from '@/lib/foodSearch'
+import type { FoodDbItem } from '@/lib/foodSearch'
+import { FoodPicker } from './FoodPicker'
+import { useFoodLibrary } from '@/hooks/useFoodLibrary'
+import { portionFactor } from '@/lib/foodPortions'
 import type { MealType } from '@/types'
 import type { AddFoodPayload } from '@/hooks/useFoodLogs'
 
@@ -16,11 +19,13 @@ const UNITS = ['g', 'ml', '个', '份', '碗', '片', '杯', '勺']
 interface AddFoodSheetProps {
   mealType: MealType
   onClose: () => void
+  onAI?: () => void
   onSave: (payload: AddFoodPayload) => Promise<void>
 }
 
 /** 选中食物库条目后，用于按份量等比缩放的基准值 */
 interface ScaleBase {
+  unit: string
   qty: number
   calories: number
   protein: number
@@ -30,7 +35,7 @@ interface ScaleBase {
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
-export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
+export function AddFoodSheet({ mealType, onClose, onSave, onAI }: AddFoodSheetProps) {
   const { t, i18n } = useTranslation()
   const displayName = (item: FoodDbItem) =>
     i18n.language.startsWith('zh') ? item.name : item.name_en || item.name
@@ -45,11 +50,12 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 食物库搜索
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<FoodDbItem[]>([])
-  const [searching, setSearching] = useState(false)
+  const library = useFoodLibrary()
   const [base, setBase] = useState<ScaleBase | null>(null)
+  const [conversion, setConversion] = useState('')
+  const [sourceFood, setSourceFood] = useState<FoodDbItem | null>(null)
+  const [favoriteSaving, setFavoriteSaving] = useState(false)
+  const [favoriteSaved, setFavoriteSaved] = useState(false)
 
   // 禁止背景滚动
   useEffect(() => {
@@ -57,20 +63,10 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  // 搜索（轻量防抖）
-  useEffect(() => {
-    const q = query.trim()
-    if (!q) { setResults([]); return }
-    setSearching(true)
-    const timer = setTimeout(async () => {
-      const r = await searchFoodDatabase(q)
-      setResults(r)
-      setSearching(false)
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [query])
-
   const selectFood = (item: FoodDbItem) => {
+    setSourceFood(item)
+    setConversion('')
+    setFavoriteSaved(false)
     setFoodName(displayName(item))
     setQuantity(String(item.serving_size))
     setUnit(item.serving_unit)
@@ -80,34 +76,52 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
     setFat(String(item.fat_g))
     setShowMacros(true)
     setBase({
-      qty: item.serving_size,
+      unit: item.serving_unit,
+      qty: Number(item.serving_size),
       calories: item.calories,
       protein: item.protein_g,
       carbs: item.carbs_g,
       fat: item.fat_g,
     })
-    setQuery('')
-    setResults([])
+
   }
 
-  // 份量变化时，若来自食物库则等比缩放营养值
-  const handleQuantityChange = (val: string) => {
-    setQuantity(val)
-    const qty = parseFloat(val)
-    if (base && base.qty > 0 && qty > 0) {
-      const f = qty / base.qty
-      setCalories(String(Math.round(base.calories * f)))
-      setProtein(String(round1(base.protein * f)))
-      setCarbs(String(round1(base.carbs * f)))
-      setFat(String(round1(base.fat * f)))
+  const factor = base ? portionFactor(Number(quantity), unit, base.qty, base.unit, Number(conversion)) : null
+  useEffect(() => {
+    if (!base || factor === null) return
+    setCalories(String(Math.round(base.calories * factor)))
+    setProtein(String(round1(base.protein * factor)))
+    setCarbs(String(round1(base.carbs * factor)))
+    setFat(String(round1(base.fat * factor)))
+  }, [base, factor])
+  useEffect(() => { setFavoriteSaved(false) }, [foodName, quantity, unit, calories, protein, carbs, fat])
+  const handleQuantityChange = (val: string) => { setQuantity(val); setFavoriteSaved(false) }
+  const valid = () => {
+    if (!foodName.trim()) { setError(t('food.errFoodName')); return false }
+    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) { setError(t('food.errQuantity')); return false }
+    if (base && factor === null) { setError(t('food.conversionRequired')); return false }
+    if (!calories.trim() || [calories, protein, carbs, fat].some(v => !Number.isFinite(Number(v)) || Number(v) < 0)) {
+      setError(t('food.errCalories')); return false
     }
+    return true
+  }
+  const saveFavorite = async () => {
+    setError('')
+    if (!valid()) return
+    setFavoriteSaving(true)
+    try {
+      await library.save({ name: foodName.trim(), name_en: null, category: '自定义',
+        serving_size: Number(quantity), serving_unit: unit, calories: Number(calories),
+        protein_g: Number(protein), carbs_g: Number(carbs), fat_g: Number(fat), fiber_g: 0, iron_mg: 0,
+        source: sourceFood?.source, source_url: sourceFood?.source_url })
+      setFavoriteSaved(true)
+    } catch { setError(t('food.saveFailed')) }
+    finally { setFavoriteSaving(false) }
   }
 
   const handleSave = async () => {
     setError('')
-    if (!foodName.trim()) { setError(t('food.errFoodName')); return }
-    if (!quantity || parseFloat(quantity) <= 0) { setError(t('food.errQuantity')); return }
-    if (!calories || parseFloat(calories) < 0) { setError(t('food.errCalories')); return }
+    if (!valid()) return
 
     setLoading(true)
     try {
@@ -156,45 +170,12 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
             </button>
           </div>
 
-          {/* 食物库搜索 */}
-          <div className="space-y-1.5">
-            <Input
-              label={t('food.searchDb')}
-              placeholder={t('food.searchPlaceholder')}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              autoFocus
-            />
-            {(searching || results.length > 0) && (
-              <div className="border border-gray-100 rounded-2xl divide-y divide-gray-50 overflow-hidden">
-                {searching && (
-                  <div className="px-4 py-3 text-sm text-gray-400">{t('food.searching')}</div>
-                )}
-                {results.map((item) => (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => selectFood(item)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-primary-50 active:bg-primary-100 transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm text-gray-800">{displayName(item)}</p>
-                      <p className="text-xs text-gray-400">
-                        {t('food.perServing', {
-                          category: FOOD_CATEGORY_KEY[item.category] ? t(FOOD_CATEGORY_KEY[item.category]) : item.category,
-                          size: item.serving_size,
-                          unit: item.serving_unit,
-                        })}
-                      </p>
-                    </div>
-                    <span className="text-sm text-primary-500 font-medium shrink-0 ml-2">
-                      {item.calories} kcal
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <FoodPicker library={library} onSelect={selectFood} onAI={onAI} onManual={name => {
+            setFoodName(name); setBase(null); setSourceFood(null); setCalories(''); setProtein(''); setCarbs(''); setFat(''); setFavoriteSaved(false)
+          }} />
+          {sourceFood?.source && <p className="text-xs text-gray-400">{t('food.externalNote')}</p>}
+          {sourceFood?.category === '外食' && <p className="text-xs text-gray-400">{t('food.recipeEstimate')}</p>}
+          {sourceFood?.source_url && <a href={sourceFood.source_url} target="_blank" rel="noreferrer" className="block text-xs text-primary-600 underline">{sourceFood.source}</a>}
 
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px bg-gray-100" />
@@ -214,7 +195,7 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
           <div className="space-y-1.5">
             <p className="text-sm font-medium text-gray-700">{t('food.quantity')}</p>
             <div className="flex gap-2">
-              <div className="flex-1">
+              <div className="w-24 shrink-0">
                 <Input
                   type="number"
                   placeholder="100"
@@ -222,12 +203,12 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
                   onChange={(e) => handleQuantityChange(e.target.value)}
                 />
               </div>
-              <div className="flex gap-1 overflow-x-auto">
-                {UNITS.map((u) => (
+              <div className="min-w-0 flex-1 flex gap-1 overflow-x-auto">
+                {Array.from(new Set([...UNITS, unit])).map((u) => (
                   <button
                     key={u}
                     type="button"
-                    onClick={() => setUnit(u)}
+                    onClick={() => { setUnit(u); setConversion(''); setFavoriteSaved(false) }}
                     className={`shrink-0 px-3 py-2 rounded-xl text-sm border-2 transition-all ${
                       unit === u
                         ? 'border-primary-400 bg-primary-50 text-primary-600 font-medium'
@@ -239,6 +220,8 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
                 ))}
               </div>
             </div>
+            {base && unit !== base.unit && <Input label={t('food.portionConversion', { unit, baseUnit: base.unit })}
+              type="number" value={conversion} onChange={e => setConversion(e.target.value)} placeholder="150" />}
             {base && (
               <p className="text-xs text-gray-400">{t('food.scaledNote')}</p>
             )}
@@ -272,7 +255,7 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
                 placeholder="0"
                 suffix="g"
                 value={protein}
-                onChange={(e) => setProtein(e.target.value)}
+                onChange={(e) => { setProtein(e.target.value); setBase(null) }}
               />
               <Input
                 label={t('food.carbs')}
@@ -280,7 +263,7 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
                 placeholder="0"
                 suffix="g"
                 value={carbs}
-                onChange={(e) => setCarbs(e.target.value)}
+                onChange={(e) => { setCarbs(e.target.value); setBase(null) }}
               />
               <Input
                 label={t('food.fat')}
@@ -288,7 +271,7 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
                 placeholder="0"
                 suffix="g"
                 value={fat}
-                onChange={(e) => setFat(e.target.value)}
+                onChange={(e) => { setFat(e.target.value); setBase(null) }}
               />
             </div>
           )}
@@ -299,6 +282,9 @@ export function AddFoodSheet({ mealType, onClose, onSave }: AddFoodSheetProps) {
             </p>
           )}
 
+          <Button fullWidth variant="outline" loading={favoriteSaving} disabled={favoriteSaved} onClick={saveFavorite}>
+            {t(favoriteSaved ? 'food.favoriteSaved' : 'food.saveFavorite')}
+          </Button>
           <Button fullWidth loading={loading} onClick={handleSave}>
             {t('food.save')}
           </Button>

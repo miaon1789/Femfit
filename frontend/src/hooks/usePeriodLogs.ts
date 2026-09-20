@@ -6,7 +6,7 @@ import type { PeriodLog } from '@/types'
 
 export function usePeriodLogs() {
   const { user } = useAuthStore()
-  const { fetchProfile } = useUserStore()
+  const { setProfile } = useUserStore()
   const [logs, setLogs] = useState<PeriodLog[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,17 +43,20 @@ export function usePeriodLogs() {
       .single()
     if (error) throw error
 
-    // 如果是最新的月经记录，同步更新 profile.last_period_date
-    const isNewest = !logs.length || payload.start_date >= logs[0].start_date
-    if (isNewest) {
-      await supabase
-        .from('users')
-        .update({ last_period_date: payload.start_date })
-        .eq('id', user.id)
-      fetchProfile(user.id)
-    }
+    // 补录历史记录后仍按开始日期倒序，保证 logs[0] 始终是最近一次。
+    setLogs((prev) => [data, ...prev].sort((a, b) => b.start_date.localeCompare(a.start_date)))
 
-    setLogs((prev) => [data, ...prev])
+    // 在数据库中比较日期，避免空列表、补录或并发写入把周期起点倒退。
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .update({ last_period_date: payload.start_date })
+      .eq('id', user.id)
+      .or(`last_period_date.is.null,last_period_date.lt.${payload.start_date}`)
+      .select()
+      .maybeSingle()
+    if (profileError) throw profileError
+    if (profile) setProfile(profile)
+
     return data
   }
 

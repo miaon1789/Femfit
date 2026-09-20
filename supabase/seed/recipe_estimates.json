@@ -1,0 +1,316 @@
+[
+  {
+    "name": "番茄鸡蛋面（参考配方）",
+    "name_en": "Tomato and egg noodles (recipe estimate)",
+    "alias": [
+      "西红柿鸡蛋面",
+      "番茄面"
+    ],
+    "ingredients": {
+      "面条（煮）": {
+        "quantity": 200,
+        "unit": "g"
+      },
+      "番茄": {
+        "quantity": 150,
+        "unit": "g"
+      },
+      "鸡蛋": {
+        "quantity": 1.0,
+        "unit": "个"
+      },
+      "食用油": {
+        "quantity": 5,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "鸡丝凉面（参考配方）",
+    "name_en": "Cold chicken noodles (recipe estimate)",
+    "alias": [
+      "鸡丝面",
+      "凉面"
+    ],
+    "ingredients": {
+      "面条（煮）": {
+        "quantity": 200,
+        "unit": "g"
+      },
+      "鸡胸肉（熟）": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "黄瓜": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "酱油": {
+        "quantity": 10,
+        "unit": "ml"
+      },
+      "食用油": {
+        "quantity": 5,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "虾仁炒饭（参考配方）",
+    "name_en": "Shrimp fried rice (recipe estimate)",
+    "alias": [
+      "虾炒饭"
+    ],
+    "ingredients": {
+      "米饭": {
+        "quantity": 200,
+        "unit": "g"
+      },
+      "虾": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "鸡蛋": {
+        "quantity": 1.0,
+        "unit": "个"
+      },
+      "胡萝卜": {
+        "quantity": 30,
+        "unit": "g"
+      },
+      "食用油": {
+        "quantity": 8,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "鸡胸肉沙拉（参考配方）",
+    "name_en": "Chicken salad (recipe estimate)",
+    "alias": [
+      "鸡肉沙拉",
+      "减脂沙拉"
+    ],
+    "ingredients": {
+      "鸡胸肉（熟）": {
+        "quantity": 120,
+        "unit": "g"
+      },
+      "生菜": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "番茄": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "黄瓜": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "食用油": {
+        "quantity": 5,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "鸡蛋三明治（参考配方）",
+    "name_en": "Egg sandwich (recipe estimate)",
+    "alias": [
+      "蛋三明治"
+    ],
+    "ingredients": {
+      "全麦面包": {
+        "quantity": 70,
+        "unit": "g"
+      },
+      "鸡蛋": {
+        "quantity": 1.0,
+        "unit": "个"
+      },
+      "生菜": {
+        "quantity": 20,
+        "unit": "g"
+      },
+      "番茄": {
+        "quantity": 30,
+        "unit": "g"
+      }
+    }
+  },
+  {
+    "name": "金枪鱼三明治（参考配方）",
+    "name_en": "Tuna sandwich (recipe estimate)",
+    "alias": [
+      "吞拿鱼三明治"
+    ],
+    "ingredients": {
+      "全麦面包": {
+        "quantity": 70,
+        "unit": "g"
+      },
+      "金枪鱼": {
+        "quantity": 80,
+        "unit": "g"
+      },
+      "生菜": {
+        "quantity": 20,
+        "unit": "g"
+      },
+      "番茄": {
+        "quantity": 30,
+        "unit": "g"
+      }
+    }
+  },
+  {
+    "name": "牛油果鸡蛋吐司（参考配方）",
+    "name_en": "Avocado egg toast (recipe estimate)",
+    "alias": [
+      "牛油果蛋吐司"
+    ],
+    "ingredients": {
+      "全麦面包": {
+        "quantity": 35,
+        "unit": "g"
+      },
+      "牛油果": {
+        "quantity": 50,
+        "unit": "g"
+      },
+      "鸡蛋": {
+        "quantity": 1.0,
+        "unit": "个"
+      }
+    }
+  },
+  {
+    "name": "酸奶燕麦碗（参考配方）",
+    "name_en": "Yogurt oat bowl (recipe estimate)",
+    "alias": [
+      "酸奶碗",
+      "燕麦碗"
+    ],
+    "ingredients": {
+      "原味酸奶": {
+        "quantity": 150,
+        "unit": "g"
+      },
+      "燕麦（干）": {
+        "quantity": 30,
+        "unit": "g"
+      },
+      "香蕉": {
+        "quantity": 60,
+        "unit": "g"
+      }
+    }
+  },
+  {
+    "name": "蓝莓希腊酸奶碗（参考配方）",
+    "name_en": "Blueberry Greek yogurt bowl (recipe estimate)",
+    "alias": [
+      "希腊酸奶碗"
+    ],
+    "ingredients": {
+      "希腊酸奶": {
+        "quantity": 170,
+        "unit": "g"
+      },
+      "蓝莓": {
+        "quantity": 60,
+        "unit": "g"
+      },
+      "杏仁": {
+        "quantity": 10,
+        "unit": "g"
+      }
+    }
+  },
+  {
+    "name": "豆腐蔬菜汤（参考配方）",
+    "name_en": "Tofu vegetable soup (recipe estimate)",
+    "alias": [
+      "豆腐汤",
+      "蔬菜豆腐汤"
+    ],
+    "ingredients": {
+      "嫩豆腐": {
+        "quantity": 150,
+        "unit": "g"
+      },
+      "白菜": {
+        "quantity": 100,
+        "unit": "g"
+      },
+      "蘑菇": {
+        "quantity": 50,
+        "unit": "g"
+      },
+      "食用油": {
+        "quantity": 3,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "鸡胸肉盖饭（参考配方）",
+    "name_en": "Chicken rice bowl (recipe estimate)",
+    "alias": [
+      "鸡肉饭",
+      "鸡胸盖饭"
+    ],
+    "ingredients": {
+      "米饭": {
+        "quantity": 150,
+        "unit": "g"
+      },
+      "鸡胸肉（熟）": {
+        "quantity": 120,
+        "unit": "g"
+      },
+      "西兰花": {
+        "quantity": 100,
+        "unit": "g"
+      },
+      "酱油": {
+        "quantity": 10,
+        "unit": "ml"
+      },
+      "食用油": {
+        "quantity": 5,
+        "unit": "ml"
+      }
+    }
+  },
+  {
+    "name": "三文鱼饭碗（参考配方）",
+    "name_en": "Salmon rice bowl (recipe estimate)",
+    "alias": [
+      "三文鱼盖饭"
+    ],
+    "ingredients": {
+      "米饭": {
+        "quantity": 150,
+        "unit": "g"
+      },
+      "三文鱼": {
+        "quantity": 100,
+        "unit": "g"
+      },
+      "黄瓜": {
+        "quantity": 60,
+        "unit": "g"
+      },
+      "牛油果": {
+        "quantity": 30,
+        "unit": "g"
+      },
+      "酱油": {
+        "quantity": 10,
+        "unit": "ml"
+      }
+    }
+  }
+]

@@ -7,7 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localh
  * 带 Supabase JWT 的后端请求封装。
  * 后端 authMiddleware 会校验该 token 并注入 userId。
  */
-async function authedFetch(path: string, options: RequestInit = {}): Promise<Response> {
+export async function authedFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
 

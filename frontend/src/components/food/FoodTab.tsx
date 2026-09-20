@@ -34,8 +34,11 @@ export function FoodTab() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [addingTo, setAddingTo] = useState<MealType | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
+  const [aiMeal, setAiMeal] = useState<MealType>(guessMeal())
+  const [copying, setCopying] = useState(false)
+  const [copyMessage, setCopyMessage] = useState('')
 
-  const { loading, addFoodEntry, deleteFoodEntry, totalCalories, mealCalories, entriesFor } =
+  const { loading, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor } =
     useFoodLogs(selectedDate)
 
   const calorieTarget = useCalorieTarget()
@@ -68,6 +71,7 @@ export function FoodTab() {
           )}
         </div>
         <input
+          disabled={copying}
           type="date"
           max={today}
           value={selectedDate}
@@ -98,12 +102,13 @@ export function FoodTab() {
 
       {/* AI 识别入口 */}
       <button
-        onClick={() => setAiOpen(true)}
+        onClick={() => { setAiMeal(guessMeal()); setAiOpen(true) }}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-primary-200 bg-primary-50 text-primary-600 text-sm font-medium hover:bg-primary-100 transition-colors"
       >
         {t('food.aiRecognizeMeal')}
       </button>
 
+      {copyMessage && <p role="status" className="text-sm text-primary-600">{copyMessage}</p>}
       {/* 四餐卡片 */}
       {loading ? (
         <div className="text-center py-10 text-gray-400">
@@ -134,6 +139,12 @@ export function FoodTab() {
                 </button>
               </div>
 
+              <button disabled={copying} className="px-5 py-2 text-xs text-primary-600 disabled:opacity-50" onClick={async () => {
+                setCopying(true); setCopyMessage('')
+                try { setCopyMessage(t(await copyPreviousMeal(mealType) ? 'food.copyDone' : 'food.copyEmpty')) }
+                catch { setCopyMessage(t('food.saveFailed')) }
+                finally { setCopying(false) }
+              }}>{t('food.copyPrevious')}</button>
               {/* 食物条目 */}
               {entries.length > 0 ? (
                 <div className="divide-y divide-gray-50">
@@ -163,6 +174,7 @@ export function FoodTab() {
         <AddFoodSheet
           mealType={addingTo}
           onClose={() => setAddingTo(null)}
+          onAI={() => { setAiMeal(addingTo); setAddingTo(null); setAiOpen(true) }}
           onSave={(payload) => addFoodEntry(addingTo, payload)}
         />
       )}
@@ -171,10 +183,10 @@ export function FoodTab() {
       {aiOpen && (
         <AIMealSheet
           date={selectedDate}
-          defaultMeal={guessMeal()}
+          defaultMeal={aiMeal}
           onClose={() => setAiOpen(false)}
           onSave={async (mealType, foods) => {
-            for (const f of foods) await addFoodEntry(mealType, f)
+            await addFoodEntries(mealType, foods)
           }}
         />
       )}

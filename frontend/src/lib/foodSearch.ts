@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase'
 
 export interface FoodDbItem {
+  serving_description?: string | null
+  id?: string
+  source?: string | null
+  source_url?: string | null
+  alias?: string[] | null
   name: string
   name_en: string | null
   category: string
@@ -14,24 +19,11 @@ export interface FoodDbItem {
   iron_mg: number
 }
 
-/**
- * 在全局食物库里按名称/别名做子串搜索。
- * 用 ilike 子串匹配（对中文有效），别名数组用 contains 兜底。
- */
-export async function searchFoodDatabase(query: string, limit = 20): Promise<FoodDbItem[]> {
+export async function searchFoodDatabase(query: string, limit = 30): Promise<FoodDbItem[]> {
   const q = query.trim()
   if (!q) return []
-
-  const { data, error } = await supabase
-    .from('food_database')
-    .select('name,name_en,category,serving_size,serving_unit,calories,protein_g,carbs_g,fat_g,fiber_g,iron_mg')
-    .or(`name.ilike.%${q}%,name_en.ilike.%${q}%,alias.cs.{${q}}`)
-    .limit(limit)
-
-  if (error) {
-    console.error('food search error:', error)
-    return []
-  }
+  const { data, error } = await supabase.rpc('search_foods', { search_query: q, result_limit: limit })
+  if (error) throw error
   return (data as FoodDbItem[]) ?? []
 }
 

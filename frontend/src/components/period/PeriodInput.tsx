@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
@@ -20,7 +21,7 @@ const LEVELS = [1, 2, 3] as const
 
 export function PeriodInput({ onAdd, onMarkEnd, latestLog }: PeriodInputProps) {
   const { t } = useTranslation()
-  const today = new Date().toISOString().split('T')[0]
+  const today = dayjs().format('YYYY-MM-DD')
 
   // 是否有进行中的月经（没有 end_date）
   const isOngoing = latestLog !== null && !latestLog.end_date

@@ -51,10 +51,11 @@ export function useCalorieTarget(): CalorieBreakdown | null {
       activityLevel: profile.activity_level,
       weightGoalPace: profile.weight_goal_pace,
       cyclePhase: phase,
+      todaySteps: todayExercise?.steps ?? null,
       stepTier: todayExercise?.step_tier ?? null,
       workoutType: todayExercise?.workout_type ?? null,
       durationMinutes: todayExercise?.duration_minutes ?? null,
-      recentExerciseLogs: exerciseLogs,
+      recentExerciseLogs: exerciseLogs.filter((log) => log.date < today),
       dataTDEE,
     })
   }, [profile, weightLogs, exerciseLogs, dataTDEE, today])
