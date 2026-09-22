@@ -46,7 +46,7 @@ export async function login(page: Page, account: Account) {
   await page.goto('/auth')
   await page.getByLabel('Email', { exact: true }).fill(account.email)
   await page.getByLabel('Password', { exact: true }).fill(account.password)
-  await page.getByRole('button', { name: 'Log in', exact: true }).click()
+  await page.locator('form').getByRole('button', { name: 'Log in', exact: true }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByRole('button', { name: 'Log out', exact: true })).toBeVisible()
 }
