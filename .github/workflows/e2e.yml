@@ -1,0 +1,77 @@
+name: Playwright E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  configuration:
+    name: Check E2E availability
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          ENABLED: ${{ vars.E2E_ENABLED }}
+          EVENT: ${{ github.event_name }}
+          FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          if [ "$FORK" = "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "E2E not run: fork pull requests cannot access test project secrets." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$ENABLED" = "true" ] || [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "E2E NOT RUN: configure the separate Supabase project and repository variable E2E_ENABLED=true. Unit CI success is not evidence of E2E success. Required variable names are in frontend/.env.e2e.example." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  e2e:
+    name: Chromium with real test Supabase
+    needs: configuration
+    if: needs.configuration.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment: e2e
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PROJECT_REF: ${{ secrets.E2E_SUPABASE_PROJECT_REF }}
+      E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck:e2e
+      - name: Validate required configuration and discover tests
+        run: npm run test:e2e -- --list
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Preserve report and any failed-attempt traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

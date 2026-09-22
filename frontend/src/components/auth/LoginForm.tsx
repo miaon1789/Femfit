@@ -59,7 +59,7 @@ export function LoginForm({ onSwitch, onForgotPassword }: LoginFormProps) {
         autoComplete="current-password"
       />
       {error && (
-        <p className="text-sm text-red-500 text-center bg-red-50 rounded-2xl px-4 py-2">
+        <p role="alert" className="text-sm text-red-500 text-center bg-red-50 rounded-2xl px-4 py-2">
           {error}
         </p>
       )}

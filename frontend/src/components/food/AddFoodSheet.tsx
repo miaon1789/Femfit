@@ -151,7 +151,7 @@ export function AddFoodSheet({ mealType, onClose, onSave, onAI }: AddFoodSheetPr
       />
 
       {/* 底部抽屉 */}
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-xl max-h-[85vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={t('food.addTo', { meal: t(MEAL_KEY[mealType]) })} className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-xl max-h-[85vh] overflow-y-auto">
         {/* 拖拽条 */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -198,6 +198,7 @@ export function AddFoodSheet({ mealType, onClose, onSave, onAI }: AddFoodSheetPr
               <div className="w-24 shrink-0">
                 <Input
                   type="number"
+                  aria-label={t('food.quantity')}
                   placeholder="100"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(e.target.value)}
@@ -277,7 +278,7 @@ export function AddFoodSheet({ mealType, onClose, onSave, onAI }: AddFoodSheetPr
           )}
 
           {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-2xl px-4 py-2 text-center">
+            <p role="alert" className="text-sm text-red-500 bg-red-50 rounded-2xl px-4 py-2 text-center">
               {error}
             </p>
           )}

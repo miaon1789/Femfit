@@ -330,7 +330,8 @@
     "saveFavorite": "☆ Save to my foods",
     "favoriteSaved": "Saved to my foods",
     "recipeEstimate": "Dishes are recipe estimates; oil and portion sizes change their nutrition.",
-    "externalNote": "Check the label, preparation and portion. Missing nutrients are not included."
+    "externalNote": "Check the label, preparation and portion. Missing nutrients are not included.",
+    "deleteEntry": "Delete {{name}}"
   },
   "weight": {
     "logTitle": "Log weight",

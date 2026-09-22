@@ -14,8 +14,15 @@ __pycache__/
 *.pyc
 
 # Personal / process docs — kept locally, not for the public showcase
+docs/**/*.md
 docs/femfit-requirements.md
 docs/phase2-tasks.md
 docs/resume-bullets.md
 docs/portfolio.md
 docs/screenshots/README.md
+
+# Playwright reports may contain temporary test sessions.
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
+frontend/.env.e2e

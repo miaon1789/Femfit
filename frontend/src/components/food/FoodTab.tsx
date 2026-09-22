@@ -57,7 +57,7 @@ export function FoodTab() {
           <p className="text-xs text-gray-400">
             {isToday ? t('food.today') : formatDateShort(selectedDate, lang)}
           </p>
-          <p className="text-xl font-bold text-gray-900">
+          <p data-testid="daily-calories" className="text-xl font-bold text-gray-900">
             {totalCalories.toLocaleString()}
             <span className="text-sm text-gray-400 font-normal ml-1">{t('food.kcalEaten')}</span>
           </p>
@@ -121,17 +121,18 @@ export function FoodTab() {
           const kcal = mealCalories(mealType)
 
           return (
-            <div key={mealType} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div key={mealType} data-testid={`meal-${mealType}`} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
               {/* 餐次标题行 */}
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{MEAL_ICON[mealType]}</span>
                   <span className="text-sm font-semibold text-gray-700">{t(MEAL_KEY[mealType])}</span>
                   {kcal > 0 && (
-                    <span className="text-xs text-gray-400">{kcal} kcal</span>
+                    <span data-testid="meal-calories" className="text-xs text-gray-400">{kcal} kcal</span>
                   )}
                 </div>
                 <button
+                  aria-label={t('food.addTo', { meal: t(MEAL_KEY[mealType]) })}
                   onClick={() => setAddingTo(mealType)}
                   className="w-7 h-7 rounded-full bg-primary-50 text-primary-500 flex items-center justify-center text-lg leading-none hover:bg-primary-100 transition-colors"
                 >
@@ -232,6 +233,7 @@ function FoodEntryRow({ entry, onDelete }: { entry: FoodEntry; onDelete: () => v
         </div>
       ) : (
         <button
+          aria-label={t('food.deleteEntry', { name: entry.food_name })}
           onClick={() => setConfirming(true)}
           className="text-gray-300 hover:text-red-400 transition-colors shrink-0 text-lg leading-none"
         >

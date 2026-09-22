@@ -167,8 +167,10 @@ npm run dev
 every push/PR:
 
 ```bash
-cd frontend && npm test        # 33 tests across cycleEngine + calorieEngine
+cd frontend && npm test        # Unit and hook regression tests
 ```
+
+Browser tests cover login/logout, food persistence, deletion and failed-save recovery using a separate Supabase test project. Real E2E execution requires the test project credentials and is not implied by the unit CI result.
 
 ## Roadmap
 
