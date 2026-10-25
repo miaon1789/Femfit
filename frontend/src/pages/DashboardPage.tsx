@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { useUserStore } from '@/store/userStore'
-import { useWeightLogs } from '@/hooks/useWeightLogs'
+import { useLatestWeightLog } from '@/hooks/useLatestWeightLog'
 import { useExerciseLogs, WORKOUT_TYPE_META } from '@/hooks/useExerciseLogs'
 import { useCalorieTarget } from '@/hooks/useCalorieTarget'
 import { useFoodLogs } from '@/hooks/useFoodLogs'
@@ -43,7 +43,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
 
   const today = dayjs().format('YYYY-MM-DD')
-  const { logs: weightLogs } = useWeightLogs(7)
+  const { log: latestWeightLog } = useLatestWeightLog()
   const { logs: exerciseLogs } = useExerciseLogs(14)
   const calorieTarget = useCalorieTarget()
   const { totalCalories: todayIntake } = useFoodLogs(today)
@@ -74,8 +74,8 @@ export function DashboardPage() {
   const phaseMeta = PHASE_META[cycleInfo.phase]
 
   // ── 体重 ────────────────────────────────────────────────────────────────────
-  const todayWeight = weightLogs.find((l) => l.date === today)?.weight_kg ?? null
-  const latestWeight = weightLogs.at(-1)?.weight_kg ?? profile.weight_kg
+  const todayWeight = latestWeightLog?.date === today ? latestWeightLog.weight_kg : null
+  const latestWeight = latestWeightLog?.weight_kg ?? profile.weight_kg
   const bmi = (latestWeight / Math.pow(profile.height_cm / 100, 2)).toFixed(1)
   const toGoal = (latestWeight - profile.target_weight_kg).toFixed(1)
   const bmiLabel = parseFloat(bmi) < 18.5 ? t('dashboard.bmiUnder')

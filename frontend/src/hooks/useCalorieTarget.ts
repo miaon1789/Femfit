@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useUserStore } from '@/store/userStore'
-import { useWeightLogs } from './useWeightLogs'
+import { useLatestWeightLog } from './useLatestWeightLog'
 import { useExerciseLogs } from './useExerciseLogs'
 import { useMaintenanceTDEE } from './useMaintenanceTDEE'
 import { computeCycleInfo } from '@/lib/cycleEngine'
@@ -16,8 +16,8 @@ export function useCalorieTarget(): CalorieBreakdown | null {
   const { profile } = useUserStore()
   const today = dayjs().format('YYYY-MM-DD')
 
-  // 只取今日体重用于计算（若有），否则用 profile 初始体重
-  const { logs: weightLogs } = useWeightLogs(7)
+  // Use the latest recorded weight, even when no weight was logged this week.
+  const { log: latestWeightLog } = useLatestWeightLog()
   const { logs: exerciseLogs } = useExerciseLogs(14)  // 14 天用于自动活动检测
   const { tdee: dataTDEE } = useMaintenanceTDEE()      // 数据驱动的维持热量（数据足够时）
 
@@ -25,9 +25,7 @@ export function useCalorieTarget(): CalorieBreakdown | null {
     if (!profile) return null
 
     // 今日体重（最新记录优先）
-    const todayWeight = weightLogs.find((l) => l.date === today)?.weight_kg
-      ?? weightLogs.at(-1)?.weight_kg
-      ?? profile.weight_kg
+    const todayWeight = latestWeightLog?.weight_kg ?? profile.weight_kg
 
     // 今日运动记录
     const todayExercise = exerciseLogs.find((l) => l.date === today) ?? null
@@ -58,5 +56,5 @@ export function useCalorieTarget(): CalorieBreakdown | null {
       recentExerciseLogs: exerciseLogs.filter((log) => log.date < today),
       dataTDEE,
     })
-  }, [profile, weightLogs, exerciseLogs, dataTDEE, today])
+  }, [profile, latestWeightLog, exerciseLogs, dataTDEE, today])
 }
