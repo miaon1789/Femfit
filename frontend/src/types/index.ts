@@ -15,7 +15,7 @@ export interface UserProfile {
   activity_level: ActivityLevel
   weight_goal_pace: WeightGoalPace
   cycle_regular: boolean
-  last_period_date: string        // ISO date "YYYY-MM-DD"
+  last_period_date: string | null        // ISO date "YYYY-MM-DD"
   avg_cycle_days: number
   avg_period_days: number
   onboarding_completed: boolean

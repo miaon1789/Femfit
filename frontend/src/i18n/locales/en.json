@@ -248,7 +248,19 @@
     "errUpdate": "Update failed, please try again",
     "logged": "✓ Logged",
     "endFirst": "End the current period first",
-    "logBtn": "Log period"
+    "logBtn": "Log period",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete this period record? This cannot be undone.",
+    "deleteConfirm": "Yes, delete",
+    "errDelete": "Could not delete the record. Please try again.",
+    "errDates": "Choose a start date on or before today, and an end date between the start date and today.",
+    "endOptional": "End date (leave blank if ongoing)",
+    "notRecorded": "Not recorded",
+    "syncFailed": "Your record was saved, but the cycle date could not be updated. Refresh or check your cycle settings before relying on predictions.",
+    "errLoad": "Could not load period records. Please refresh and try again.",
+    "noCycleData": "Log a period start date to see cycle estimates."
   },
   "food": {
     "mealBreakfast": "Breakfast",

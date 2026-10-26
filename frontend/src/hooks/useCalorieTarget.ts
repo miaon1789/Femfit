@@ -31,11 +31,11 @@ export function useCalorieTarget(): CalorieBreakdown | null {
     const todayExercise = exerciseLogs.find((l) => l.date === today) ?? null
 
     // 当前周期阶段
-    const { phase } = computeCycleInfo(
+    const phase = profile.last_period_date ? computeCycleInfo(
       profile.last_period_date,
       profile.avg_cycle_days,
       profile.avg_period_days
-    )
+    ).phase : null
 
     // 年龄
     const currentMonth = dayjs().month() + 1

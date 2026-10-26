@@ -5,7 +5,7 @@ import { computeDailyCalorieTarget } from '@/lib/calorieEngine'
 const state = vi.hoisted(() => ({
   profile: { weight_kg: 60, height_cm: 165, birth_year: 1996, birth_month: 1,
     activity_level: 'moderate', weight_goal_pace: 'moderate',
-    last_period_date: '2026-01-01', avg_cycle_days: 28, avg_period_days: 5 },
+    last_period_date: '2026-01-01' as string | null, avg_cycle_days: 28, avg_period_days: 5 },
   exerciseLogs: [] as Array<Record<string, unknown>>,
   latestWeightLog: null as { date: string; weight_kg: number } | null,
 }))
@@ -56,4 +56,10 @@ describe('calorie target wiring', () => {
     expect(target.avgRecentSteps).toBe(5000)
     expect(target.stepAdjustment).toBe(50)
   })
+})
+
+it('uses no cycle calorie adjustment when the last period is deleted', () => {
+  state.profile.last_period_date = null
+  expect(useCalorieTarget()!.cycleAdjustment).toBe(0)
+  state.profile.last_period_date = '2026-01-01'
 })

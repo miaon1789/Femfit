@@ -8,7 +8,7 @@ import type { WeightLog } from '@/types'
 const state = vi.hoisted(() => ({
   log: { id: 'w', user_id: 'u', date: '2026-08-06', weight_kg: 54.6, created_at: '' } as WeightLog | null,
   profile: { nickname: 'Demo', weight_kg: 57.6, height_cm: 175, target_weight_kg: 55,
-    last_period_date: '2026-10-25', avg_cycle_days: 30, avg_period_days: 5 },
+    last_period_date: '2026-10-25' as string | null, avg_cycle_days: 30, avg_period_days: 5 },
 }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
@@ -42,4 +42,13 @@ describe('dashboard recorded weight', () => {
     expect(html).toContain('57.6')
     expect(html).toContain('18.8')
   })
+})
+
+it('shows a log prompt instead of invented cycle dates when no start remains', () => {
+  state.profile.last_period_date = null
+  const html = renderToStaticMarkup(createElement(DashboardPage))
+  expect(html).toContain('period.noCycleData')
+  expect(html).not.toContain('dashboard.currentPhase')
+  expect(html).not.toContain('Invalid Date')
+  state.profile.last_period_date = '2026-10-25'
 })

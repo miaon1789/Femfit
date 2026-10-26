@@ -97,12 +97,12 @@ export function WeightChart({ logs, profile }: WeightChartProps) {
     ]
 
     // 周期阶段分段
-    const segs = generatePhaseSegments(
+    const segs = profile.last_period_date ? generatePhaseSegments(
       allDates,
       profile.last_period_date,
       profile.avg_cycle_days,
       profile.avg_period_days
-    )
+    ) : []
 
     return { points: withAvg, segments: segs, yDomain }
   }, [logs, range, profile])

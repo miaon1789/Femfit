@@ -66,12 +66,12 @@ export function DashboardPage() {
   if (!profile) return null
 
   // ── 周期信息 ────────────────────────────────────────────────────────────────
-  const cycleInfo = computeCycleInfo(
+  const cycleInfo = profile.last_period_date ? computeCycleInfo(
     profile.last_period_date,
     profile.avg_cycle_days,
     profile.avg_period_days
-  )
-  const phaseMeta = PHASE_META[cycleInfo.phase]
+  ) : null
+  const phaseMeta = cycleInfo ? PHASE_META[cycleInfo.phase] : null
 
   // ── 体重 ────────────────────────────────────────────────────────────────────
   const todayWeight = latestWeightLog?.date === today ? latestWeightLog.weight_kg : null
@@ -118,7 +118,7 @@ export function DashboardPage() {
       <div className="px-5 pt-5 max-w-md mx-auto space-y-4">
 
         {/* ── 周期阶段卡片 ── */}
-        <Card className={`bg-gradient-to-br ${phaseMeta.gradient} text-white border-0`}>
+        {cycleInfo && phaseMeta ? <Card className={`bg-gradient-to-br ${phaseMeta.gradient} text-white border-0`}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-white/70 text-xs mb-1">{t('dashboard.currentPhase', { day: cycleInfo.dayOfCycle })}</p>
@@ -132,6 +132,9 @@ export function DashboardPage() {
             <span>{t('dashboard.ovulation', { date: formatDateShort(cycleInfo.predictedOvulation, lang) })}</span>
           </div>
         </Card>
+
+        : <Card><p className="text-sm text-gray-600">{t('period.noCycleData')}</p>
+          <button className="mt-2 text-sm text-primary-600" onClick={() => navigate('/records/period')}>{t('period.logBtn')}</button></Card>}
 
         {/* ── 体重 + BMI ── */}
         <div className="grid grid-cols-2 gap-3">

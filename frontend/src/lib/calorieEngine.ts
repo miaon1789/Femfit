@@ -283,7 +283,7 @@ export interface CalorieTargetParams {
   ageYears: number
   activityLevel: ActivityLevel
   weightGoalPace: WeightGoalPace
-  cyclePhase: CyclePhase
+  cyclePhase: CyclePhase | null
 
   // 推荐新增：今天真实步数
   todaySteps?: number | null
@@ -328,7 +328,7 @@ export function computeDailyCalorieTarget(p: CalorieTargetParams): CalorieBreakd
   const workoutAdjustment = getWorkoutAdjustment(p.workoutType, p.durationMinutes)
 
   // 5) 周期微调：温和支持
-  const cycleAdjustment = getCycleAdjustment(p.cyclePhase)
+  const cycleAdjustment = p.cyclePhase ? getCycleAdjustment(p.cyclePhase) : 0
 
   // 6) 最终目标
   const finalTarget = Math.max(

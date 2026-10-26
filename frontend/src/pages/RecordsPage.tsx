@@ -11,6 +11,7 @@ import { WeightChart } from '@/components/weight/WeightChart'
 import { WeightStats } from '@/components/weight/WeightStats'
 import { ExerciseInput } from '@/components/exercise/ExerciseInput'
 import { MeasurementInput } from '@/components/measurements/MeasurementInput'
+import { PeriodRecordActions } from '@/components/period/PeriodRecordActions'
 import { PeriodInput } from '@/components/period/PeriodInput'
 import { FoodTab } from '@/components/food/FoodTab'
 import { StepsBadge } from '@/components/exercise/StepsBadge'
@@ -65,7 +66,7 @@ export function RecordsPage() {
   const { logs: measurementLogs, loading: measurementLoading, saveLog: saveMeasurement } = useMeasurementLogs(90)
 
   // ── 月经数据 ──────────────────────────────────────────────────────────────────
-  const { logs: periodLogs, loading: periodLoading, addPeriod, updatePeriod } = usePeriodLogs()
+  const { logs: periodLogs, loading: periodLoading, error: periodError, addPeriod, updatePeriod, deletePeriod } = usePeriodLogs()
 
   if (!profile) return null
 
@@ -231,8 +232,9 @@ export function RecordsPage() {
             <PeriodInput
               onAdd={addPeriod}
               onMarkEnd={(id, endDate) => updatePeriod(id, { end_date: endDate })}
-              latestLog={periodLogs[0] ?? null}
+              latestLog={periodLogs.find((log) => !log.end_date) ?? periodLogs[0] ?? null}
             />
+            {periodError && <p role="alert" className="text-sm text-red-600">{periodError === 'period.syncFailed' ? t(periodError) : t('period.errLoad')}</p>}
             {periodLoading ? (
               <div className="text-center py-10 text-gray-400">
                 <div className="text-3xl animate-pulse mb-2">🩸</div>
@@ -279,6 +281,7 @@ export function RecordsPage() {
                             </span>
                           )}
                         </div>
+                        <PeriodRecordActions log={log} onUpdate={updatePeriod} onDelete={deletePeriod} />
                         {log.notes && (
                           <p className="text-xs text-gray-400 mt-1">{log.notes}</p>
                         )}
