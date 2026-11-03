@@ -40,10 +40,19 @@ export interface AIMealResult {
   report_id?: string
 }
 
-/**
- * 自然语言饮食分析。例如 "中午吃了一碗兰州拉面加一个鸡蛋"。
- * 失败时抛出带后端错误信息的 Error（含限流 429 文案）。
- */
+type MealErrorKey = 'food.aiFailed' | 'food.aiDailyLimit' | 'food.aiInvalidResponse' | 'food.aiSignIn' | 'food.aiQuotaUnavailable'
+
+export class MealAnalysisError extends Error {
+  constructor(readonly translationKey: MealErrorKey) {
+    super(translationKey)
+  }
+}
+
+export function getMealAnalysisErrorKey(error: unknown): MealErrorKey {
+  return error instanceof MealAnalysisError ? error.translationKey : 'food.aiFailed'
+}
+
+/** Analyze a meal, exposing stable translation keys instead of server prose. */
 export async function analyzeMeal(input: {
   description: string
   meal_type: MealType
@@ -56,8 +65,14 @@ export async function analyzeMeal(input: {
   })
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error((body as { error?: string }).error ?? `AI 分析失败（${res.status}）`)
+    const body = await res.json().catch(() => null)
+    const code = body?.error
+    const key: MealErrorKey = res.status === 429 ? 'food.aiDailyLimit'
+      : res.status === 401 ? 'food.aiSignIn'
+      : code === 'ai_quota_unavailable' ? 'food.aiQuotaUnavailable'
+      : code === 'ai_invalid_response' ? 'food.aiInvalidResponse'
+      : 'food.aiFailed'
+    throw new MealAnalysisError(key)
   }
   return res.json() as Promise<AIMealResult>
 }

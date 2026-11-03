@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
@@ -9,6 +9,8 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
 import { RecordsPage } from '@/pages/RecordsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
+import { clearPrivateApiCache } from '@/lib/privateCache'
 
 function GuestOnly({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuthStore()
@@ -18,7 +20,7 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuthStore()
+  const { session, loading, user } = useAuthStore()
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -27,22 +29,24 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     )
   }
   if (!session) return <Navigate to="/auth" replace />
-  return <>{children}</>
+  return <Fragment key={user?.id}>{children}</Fragment>
 }
 
 function RequireOnboarding({ children }: { children: React.ReactNode }) {
   const { profile, loading, fetchProfile } = useUserStore()
   const { user } = useAuthStore()
   // 追踪是否已经发起过 fetch，避免在 fetch 完成前就跳转
-  const [checked, setChecked] = useState(false)
+  const [checkedUserId, setCheckedUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) { setChecked(true); return }
-    if (profile) { setChecked(true); return }
-    fetchProfile(user.id).finally(() => setChecked(true))
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!user) return
+    let cancelled = false
+    if (profile?.id === user.id) { setCheckedUserId(user.id); return }
+    fetchProfile(user.id).finally(() => { if (!cancelled) setCheckedUserId(user.id) })
+    return () => { cancelled = true }
+  }, [user?.id, profile?.id, fetchProfile])
 
-  if (!checked || loading) {
+  if (checkedUserId !== user?.id || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-4xl animate-pulse">🌸</div>
@@ -50,7 +54,7 @@ function RequireOnboarding({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!profile || !profile.onboarding_completed) {
+  if (!profile || profile.id !== user?.id || !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />
   }
   return <>{children}</>
@@ -60,23 +64,29 @@ export default function App() {
   const { setSession } = useAuthStore()
 
   useEffect(() => {
-    // 初始化时获取当前 session
+    // Supabase is the only persisted session source. Remove the old duplicate.
+    try { localStorage.removeItem('femfit-auth-store') } catch { /* Storage may be disabled. */ }
+    void clearPrivateApiCache().catch(() => {})
+    let active = true
+    let authEventReceived = false
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
+      if (active && !authEventReceived) setSession(session)
+    }).catch(() => { if (active && !authEventReceived) setSession(null) })
 
     // 监听 auth 状态变化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      authEventReceived = true
+      setSession(session, event)
     })
 
-    return () => subscription.unsubscribe()
+    return () => { active = false; subscription.unsubscribe() }
   }, [setSession])
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/auth" element={<GuestOnly><AuthPage /></GuestOnly>} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/onboarding"
           element={

@@ -1,13 +1,13 @@
 /**
  * calorieEngine.ts
  *
- * 改进版四层热量目标模型：
- *   Layer 1  平均减脂热量  = 平均 TDEE - 减脂缺口
- *   Layer 2  步数调节      = 基于“今日步数 vs 最近平均步数”的偏差微调
- *   Layer 3  训练调节      = 训练日小幅补充（不吃回全部训练消耗）
- *   Layer 4  周期调节      = 月经阶段温和修正
+ * Four-layer calorie target model:
+ *   Layer 1  Base target = average TDEE - calorie deficit
+ *   Layer 2  Step adjustment = small correction against recent average steps
+ *   Layer 3  Workout adjustment = partial replacement of workout energy
+ *   Layer 4  Cycle adjustment = gentle correction for the current phase
  *
- * 最终目标 = Layer1 + Layer2 + Layer3 + Layer4，且 ≥ 个体化最低热量
+ * Final target = sum of all four layers, floored at the individual minimum.
  */
 
 import type {
@@ -19,10 +19,10 @@ import type {
 } from '@/types'
 import type { ExerciseLog } from '@/types'
 
-// ── Layer 1：基础减脂热量 ─────────────────────────────────────────────────────
+// Layer 1: base calorie target
 
 /**
- * Mifflin-St Jeor（女性）
+ * Mifflin-St Jeor equation for women
  * BMR = 10W + 6.25H - 5A - 161
  */
 export function computeBMR(weightKg: number, heightCm: number, ageYears: number): number {
@@ -41,8 +41,8 @@ export function computeTDEE(bmr: number, activityLevel: ActivityLevel): number {
 }
 
 /**
- * 减脂缺口
- * slow ≈ 200–350 kcal；moderate ≈ 400–600 kcal；fast ≈ 500–750 kcal
+ * Calorie deficit
+ * slow: 200 to 350 kcal, moderate: 400 to 600 kcal, fast: 500 to 750 kcal
  */
 const DEFICIT_RATIOS: Record<WeightGoalPace, number> = {
   slow: 0.15,
@@ -69,9 +69,9 @@ export function computeDeficit(tdee: number, pace: WeightGoalPace): number {
 }
 
 /**
- * 个体化最低热量保护：
+ * Individual minimum target:
  *  1) 1200
- *  2) BMR 的 90%（不低于基础代谢的 90%）
+ *  2) 90% of BMR
  */
 export function computeMinimumTarget(bmr: number): number {
   return Math.round(Math.max(1200, bmr * 0.9))
@@ -82,11 +82,11 @@ export function computeBaseTarget(tdee: number, pace: WeightGoalPace, minimumTar
   return Math.max(minimumTarget, tdee - deficit)
 }
 
-// ── Layer 2：步数调节（NEAT） ──────────────────────────────────────────────────
+// Layer 2: step adjustment (NEAT)
 
 /**
- * 兼容旧参数 StepTier 的兜底版本（若没有 todaySteps / recent logs）
- * 注意：这里只做非常小的微调，避免与 Layer 1 双算。
+ * Legacy StepTier adjustment when today's step count is unavailable.
+ * Keep corrections small to avoid double-counting activity from Layer 1.
  */
 const LEGACY_STEP_ADJUSTMENTS: Record<StepTier, number> = {
   low: -50,
@@ -112,8 +112,8 @@ function averageRecentSteps(logs: ExerciseLog[], days = 14): number | null {
 }
 
 /**
- * 推荐版本：根据“今天步数”相对“最近平均步数”的偏差来修正。
- * 这样不会把“本来就高活动”的用户再重复加热量。
+ * Adjust today's steps relative to the recent average.
+ * This avoids counting an already active baseline twice.
  */
 export function getStepAdjustmentFromDelta(todaySteps: number | null, recentExerciseLogs: ExerciseLog[]): number {
   if (todaySteps === null) return 0
@@ -129,11 +129,11 @@ export function getStepAdjustmentFromDelta(todaySteps: number | null, recentExer
   return 100
 }
 
-// ── Layer 3：训练调节 ─────────────────────────────────────────────────────────
+// Layer 3: workout adjustment
 
 /**
- * 只回补小部分消耗，避免“练了就多吃很多”。
- * 不直接使用手表热量，因为误差通常较大。
+ * Replace only a small fraction of workout energy.
+ * Watch calorie estimates are not used because they can be imprecise.
  */
 export function getWorkoutAdjustment(
   workoutType: WorkoutType | null,
@@ -145,15 +145,15 @@ export function getWorkoutAdjustment(
 
   switch (workoutType) {
     case 'strength':
-      // 力量训练：普通日小幅支持恢复
+      // Strength training: a small allowance for recovery.
       return dur < 45 ? 50 : 80
 
     case 'hiit':
-      // HIIT：略高于力量，但仍保守
+      // HIIT: slightly above strength training, still conservative.
       return dur < 30 ? 70 : 100
 
     case 'cardio':
-      // 有氧：时长分层
+      // Cardio: scale by duration.
       if (dur < 30) return 40
       if (dur < 60) return 70
       return 100
@@ -169,31 +169,31 @@ export function getWorkoutAdjustment(
   }
 }
 
-// ── Layer 4：周期调节 ─────────────────────────────────────────────────────────
+// Layer 4: cycle adjustment
 
 /**
- * 周期调节保持温和，避免把周期当成“固定大幅加减热量”的硬规则。
+ * Keep cycle adjustments modest instead of applying large fixed changes.
  */
 const CYCLE_ADJUSTMENTS: Record<CyclePhase, number> = {
-  menstrual: 75,   // 经期适当放宽
-  follicular: 0,   // 不再固定额外压热量
+  menstrual: 75,   // Small menstrual allowance.
+  follicular: 0,   // No additional fixed deficit.
   ovulation: 0,
-  luteal: 75,      // 黄体期适当放宽
+  luteal: 75,      // Small luteal allowance.
 }
 
 export function getCycleAdjustment(phase: CyclePhase): number {
   return CYCLE_ADJUSTMENTS[phase]
 }
 
-// ── 自动活动水平检测 ──────────────────────────────────────────────────────────
+// Automatic activity-level detection
 
 /**
- * 根据最近 14 天的实际步数和训练频率，推断平均活动水平。
- * 数据不足时返回 null，让调用方回退到用户手动设置。
+ * Infer average activity from the latest 14 days of steps and workout frequency.
+ * Return null when history is insufficient so the caller can use the profile setting.
  *
- * 注意：
- * 这个活动水平用于 Layer 1 的“平均 TDEE”；
- * 因此 Layer 2 / 3 只做“小幅偏差修正”，不要大加。
+ * Note:
+ * This activity level sets average TDEE in Layer 1.
+ * Layers 2 and 3 therefore apply only small corrections.
  */
 export function detectActivityLevel(logs: ExerciseLog[]): ActivityLevel | null {
   const recent = logs.slice(0, 14)
@@ -213,9 +213,9 @@ export function detectActivityLevel(logs: ExerciseLog[]): ActivityLevel | null {
   return 'sedentary'
 }
 
-// ── 汇总计算 ──────────────────────────────────────────────────────────────────
+// Combined calculation
 
-// ── 数据驱动的维持热量（能量平衡）─────────────────────────────────────────────
+// Maintenance calories from energy balance
 
 export const KCAL_PER_KG = 7700
 
@@ -226,17 +226,17 @@ export interface DailyPoint {
 }
 
 /**
- * 从用户「每日摄入 vs 体重变化」用能量平衡反推个人维持热量(TDEE)：
- *   TDEE = 平均摄入 − 体重斜率(kg/天) × 7700
- * 数据不足（默认 < 21 天同时有体重与摄入）时返回 null，让调用方回退到公式 TDEE。
- * 这是 analysis/adaptive_tdee.py 估计器的 TS 版——把数据科学结论接回产品。
+ * Estimate personal maintenance calories (TDEE) from intake and weight change:
+ *   TDEE = mean intake - weight slope (kg/day) * 7700
+ * Return null below minDays (default 21) of paired weight and intake observations.
+ * TypeScript counterpart of analysis/adaptive_tdee.py, feeding the estimate into the app.
  */
 export function estimateMaintenanceTDEE(points: DailyPoint[], minDays = 21): number | null {
   const pts = points.filter((p) => Number.isFinite(p.weightKg) && Number.isFinite(p.intakeKcal))
   const n = pts.length
   if (n < minDays) return null
 
-  // OLS：体重 ~ day，求斜率（kg/天）
+  // OLS: regress weight on day to estimate the slope in kg/day.
   const meanDay = pts.reduce((s, p) => s + p.day, 0) / n
   const meanW = pts.reduce((s, p) => s + p.weightKg, 0) / n
   let num = 0
@@ -251,7 +251,7 @@ export function estimateMaintenanceTDEE(points: DailyPoint[], minDays = 21): num
   return Math.round(meanIntake - slopeKgPerDay * KCAL_PER_KG)
 }
 
-// ── 汇总计算 ──────────────────────────────────────────────────────────────────
+// Combined calculation
 
 export interface CalorieBreakdown {
   bmr: number
@@ -270,12 +270,12 @@ export interface CalorieBreakdown {
 }
 
 /**
- * 兼容你现有的参数结构：
- * - 保留 stepTier
- * - 增加 todaySteps（推荐传）
+ * Preserve compatibility with the existing parameters:
+ * - Keep stepTier.
+ * - Prefer todaySteps when available.
  *
- * 如果 todaySteps 有值，优先使用“相对最近平均步数的偏差修正”
- * 如果 todaySteps 没有值，再回退到 stepTier 的旧逻辑
+ * When todaySteps is available, use its deviation from the recent average.
+ * Otherwise fall back to the legacy stepTier adjustment.
  */
 export interface CalorieTargetParams {
   weightKg: number
@@ -285,30 +285,30 @@ export interface CalorieTargetParams {
   weightGoalPace: WeightGoalPace
   cyclePhase: CyclePhase | null
 
-  // 推荐新增：今天真实步数
+  // Today's actual step count, preferred when available.
   todaySteps?: number | null
 
-  // 兼容旧字段：如果 todaySteps 没有传，则回退使用
+  // Legacy fallback when todaySteps is not supplied.
   stepTier: StepTier | null
 
   workoutType: WorkoutType | null
   durationMinutes: number | null
 
-  // 用于自动检测活动水平 & 计算最近平均步数
+  // Used for activity detection and the recent step average.
   recentExerciseLogs: ExerciseLog[]
 
-  // 数据驱动的维持热量（数据足够时由 estimateMaintenanceTDEE 提供，替代公式 TDEE）
+  // Replaces formula TDEE when estimateMaintenanceTDEE has enough observations.
   dataTDEE?: number | null
 }
 
 export function computeDailyCalorieTarget(p: CalorieTargetParams): CalorieBreakdown {
-  // 1) 自动检测“平均活动水平”
+  // 1) Detect average activity level.
   const detectedActivityLevel = detectActivityLevel(p.recentExerciseLogs)
   const usedActivityLevel = detectedActivityLevel ?? p.activityLevel
 
-  // 2) 基础盘：平均 TDEE -> 平均减脂热量
+  // 2) Convert average TDEE into the base calorie target.
   const bmr = computeBMR(p.weightKg, p.heightCm, p.ageYears)
-  // 数据足够时用「从用户数据学出的维持热量」，否则回退 Mifflin-St Jeor 公式
+  // Use observed maintenance calories when available, otherwise the formula estimate.
   const formulaTDEE = computeTDEE(bmr, usedActivityLevel)
   const tdee = p.dataTDEE ?? formulaTDEE
   const tdeeSource: 'formula' | 'data' = p.dataTDEE != null ? 'data' : 'formula'
@@ -316,7 +316,7 @@ export function computeDailyCalorieTarget(p: CalorieTargetParams): CalorieBreakd
   const deficit = computeDeficit(tdee, p.weightGoalPace)
   const baseTarget = computeBaseTarget(tdee, p.weightGoalPace, minimumTarget)
 
-  // 3) 步数微调：优先用“今日 vs 最近平均”
+  // 3) Prefer a step correction relative to the recent average.
   const avgRecentSteps = averageRecentSteps(p.recentExerciseLogs, 14)
 
   const stepAdjustment =
@@ -324,13 +324,13 @@ export function computeDailyCalorieTarget(p: CalorieTargetParams): CalorieBreakd
       ? getStepAdjustmentFromDelta(p.todaySteps, p.recentExerciseLogs)
       : getLegacyStepAdjustment(p.stepTier)
 
-  // 4) 训练微调：只补一小部分
+  // 4) Replace a small fraction of workout energy.
   const workoutAdjustment = getWorkoutAdjustment(p.workoutType, p.durationMinutes)
 
-  // 5) 周期微调：温和支持
+  // 5) Apply a gentle cycle adjustment.
   const cycleAdjustment = p.cyclePhase ? getCycleAdjustment(p.cyclePhase) : 0
 
-  // 6) 最终目标
+  // 6) Apply the minimum to the final target.
   const finalTarget = Math.max(
     minimumTarget,
     Math.round(baseTarget + stepAdjustment + workoutAdjustment + cycleAdjustment)

@@ -1,16 +1,16 @@
 /**
  * cycleEngine.ts
  *
- * 专注于月经周期阶段的判断与预测。
- * 热量目标计算已迁移至 calorieEngine.ts。
+ * Calculate menstrual cycle phases and predicted dates.
+ * Calorie targets are calculated in calorieEngine.ts.
  */
 
 import dayjs from 'dayjs'
 import type { CyclePhase, CycleInfo } from '@/types'
 
-// ── 历史日期阶段计算（图表用） ─────────────────────────────────────────────────
+// Historical phases for charts
 
-/** 计算某个历史日期处于哪个周期阶段 */
+/** Calculate the cycle phase for a historical date. */
 export function getPhaseForDate(
   date: string,
   lastPeriodDate: string,
@@ -25,7 +25,7 @@ export function getPhaseForDate(
   return 'luteal'
 }
 
-/** 在给定日期列表中，生成连续同阶段的分段（用于图表背景色） */
+/** Group consecutive dates in the same phase for chart background bands. */
 export function generatePhaseSegments(
   dates: string[],
   lastPeriodDate: string,
@@ -48,14 +48,14 @@ export function generatePhaseSegments(
   return segments
 }
 
-// ── 当前周期阶段信息 ──────────────────────────────────────────────────────────
+// Current cycle information
 //
-// 注意：阶段标签与一句话建议已移到 i18n（cycle.phase.* / cycle.tip.*），
-// 由组件按当前语言用 t() 渲染；引擎只返回稳定的 phase id 与 ISO 日期。
+// Phase labels and short tips live in i18n (cycle.phase.* / cycle.tip.*).
+// Components translate them with t(). The engine returns phase IDs and ISO dates.
 
 /**
- * 根据最后一次月经开始日期、平均周期天数、平均经期天数，
- * 计算当前所处的月经周期阶段及预测日期。
+ * Use the last period start, average cycle length and average period length
+ * to calculate the current phase and predicted dates.
  */
 export function computeCycleInfo(
   lastPeriodDate: string,

@@ -48,7 +48,13 @@
     "forgotIntro": "Enter your registered email and we'll send you a password-reset link.",
     "forgotEmailPlaceholder": "Enter your registered email",
     "sendResetEmail": "Send reset email",
-    "sendFailed": "Failed to send, please try again"
+    "sendFailed": "Failed to send, please try again",
+    "newPassword": "New password",
+    "signOutFailed": "Could not log out. Please check your connection and try again.",
+    "updatePassword": "Save new password",
+    "resetSuccess": "Your password has been updated.",
+    "resetFailed": "Could not update your password. Please try again or request a new reset link.",
+    "resetLinkInvalid": "This reset link is invalid or has expired. Please request a new one."
   },
   "nav": {
     "weight": "Weight",
@@ -303,6 +309,12 @@
     "aiPlaceholder": "e.g. a bowl of beef noodle soup with an egg and a side dish",
     "errDescribe": "First, describe what you ate",
     "aiFailed": "AI analysis failed, please try again",
+    "aiDailyLimit": "You have used today's 3 free AI attempts. Please try again tomorrow.",
+    "aiQuotaUnavailable": "AI analysis is temporarily unavailable. Please try again later.",
+    "loadFailed": "Could not load your meals. Your records may still be saved. Please retry.",
+    "retry": "Retry",
+    "aiInvalidResponse": "AI returned an incomplete or invalid meal estimate. Please try again.",
+    "aiSignIn": "Please sign in again to analyze your meal.",
     "result": "Result",
     "noFoodsFound": "No foods detected — try rephrasing",
     "reanalyze": "Re-analyze",

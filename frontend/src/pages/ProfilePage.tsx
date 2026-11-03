@@ -77,7 +77,7 @@ export function ProfilePage() {
           {msg && <p className="text-xs text-primary-600 text-center mt-2">{msg}</p>}
         </Card>
 
-        <Button variant="ghost" fullWidth onClick={signOut} className="text-gray-400 text-sm">
+        <Button variant="ghost" fullWidth onClick={() => { void signOut().catch(() => setMsg(t('auth.signOutFailed'))) }} className="text-gray-400 text-sm">
           {t('common.logout')}
         </Button>
       </div>

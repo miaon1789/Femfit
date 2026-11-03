@@ -1,0 +1,44 @@
+Harden account privacy, AI quotas and password recovery
+
+Clear profiles across account changes and ignore stale responses. Use
+Supabase as the sole persisted session source and remount private views
+for each user. Show failed logout rather than claiming success.
+
+Reserve free AI attempts atomically through a service-only PostgreSQL RPC.
+Fail closed on quota errors and preserve usage independently of reports.
+Protect profile columns and enable read-only food-library RLS. Update
+onboarding to use the profile created by the signup trigger.
+
+Complete password recovery with localized validation, user-bound recovery
+authorization and expired-link handling. Preserve recovery across tab
+focus and token refresh. Stop caching private APIs and purge legacy
+responses on worker activation, startup and explicit logout. Show meal
+read failures with retry instead of zero intake.
+
+Keep AI output validation and server calorie totals from the preceding
+change. Correct provider-key test setup, assert request headers and add
+provider deadlines. Add isolated production browser and PostgreSQL CI
+checks alongside the shared agent verification workflow.
+
+Validation:
+- npm run verify: passed, 91 frontend, 44 backend and 5 hook tests.
+- Frontend/browser-test typechecks and backend compilation: passed.
+- npm run build: passed for both packages.
+- Seven synthetic production browser checks passed. Recovery passed a
+  targeted rerun after its visibility-event regression was corrected.
+- Schema/migration permission and quota assertions passed on PGlite 0.5.14.
+- git diff --check: passed.
+
+Independent review:
+- Fixed two P2 recovery findings: existing sessions on expired links and
+  same-session SIGNED_IN events on tab refocus.
+- Focused re-review confirmed both resolved with no remaining findings.
+
+Deployment and limits:
+- Apply migration 003 before deploying the new backend and frontend.
+- Configure the exact reset-password redirect URL in Supabase Auth.
+- Refresh old clients, whose onboarding upsert is denied by the new grants.
+- Hosted migration, email delivery and real-Supabase E2E were not exercised.
+- PGlite serializes requests. Multi-connection PostgreSQL checks are in CI
+  and still require an observed run after push.
+- Existing bundle-size and Browserslist-data warnings remain.

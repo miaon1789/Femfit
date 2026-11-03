@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
-import { analyzeMeal, type AIAnalyzedFood } from '@/lib/api'
+import { analyzeMeal, getMealAnalysisErrorKey, type AIAnalyzedFood } from '@/lib/api'
 import type { MealType } from '@/types'
 import type { AddFoodPayload } from '@/hooks/useFoodLogs'
 
@@ -47,7 +47,7 @@ export function AIMealSheet({ date, defaultMeal, onClose, onSave }: AIMealSheetP
       setFoods(res.foods ?? [])
       setCycleTip(res.cycle_tip ?? '')
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('food.aiFailed'))
+      setError(t(getMealAnalysisErrorKey(e)))
     } finally {
       setAnalyzing(false)
     }
