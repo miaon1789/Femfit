@@ -1,0 +1,27 @@
+Add meal photo analysis with optional portion notes
+
+Let users take or choose a meal photo, add optional notes and review foods,
+portions, calories and macros before saving. Keep text-only input working.
+Clear old estimates when inputs change and preserve photos on analysis errors.
+
+Resize and re-encode images in the browser. Bound server request bytes and
+check base64, file signatures and image size before reserving quota. Send
+image and notes together through the existing Claude/OpenAI configurations.
+Keep validated outputs, server calorie totals and explicit save behavior.
+
+Do not store image bytes or original filenames in reports or logs. Explain
+approximate estimates and provider photo processing in English and Chinese.
+Add no-store responses and client cancellation/deadline handling.
+
+Validation:
+- 98 frontend and 59 backend tests passed.
+- 12 synthetic production browser checks passed, including 5 photo cases.
+- npm run verify: passed, including 5 hook tests and all typechecks.
+- npm run build and git diff --check: passed.
+
+Independent read-only review found no actionable issues. Live model accuracy,
+provider acceptance, real camera/HEIC behavior, EXIF fixtures and some client
+cancellation/save-error paths remain verification limits.
+
+No migration or new environment variable is required. Deploy the backend
+before the frontend. Photo and text analysis share existing daily quota.

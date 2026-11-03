@@ -25,6 +25,7 @@ after(() => {
 const meal = { foods: [{ food_name: 'Rice', quantity: 1, unit: 'bowl', calories: 200,
   protein_g: 4, carbs_g: 44, fat_g: 1, fiber_g: 0, iron_mg: 0 }],
   total_calories: 999, cycle_tip: '' }
+const image = { media_type: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRlwAAAAASUVORK5CYII=' }
 
 function mockServices({ text = JSON.stringify(meal), count = 0, providerStatus = 200, saveStatus = 201,
   quotaStatus = 200, invalidQuota = false, provider = 'claude', hang = false } = {}) {
@@ -33,6 +34,7 @@ function mockServices({ text = JSON.stringify(meal), count = 0, providerStatus =
   const logs = []
   let providerCalls = 0
   let attempts = count
+  const providerBodies = []
   console.error = (...args) => logs.push(args)
   globalThis.fetch = async (input, options) => {
     const url = String(input)
@@ -52,6 +54,7 @@ function mockServices({ text = JSON.stringify(meal), count = 0, providerStatus =
     }
     if (url === 'https://api.anthropic.com/v1/messages' || url === 'https://api.openai.com/v1/chat/completions') {
       providerCalls++
+      providerBodies.push(JSON.parse(options.body))
       assert.ok(options.signal instanceof AbortSignal)
       if (provider === 'claude') assert.equal(options.headers['x-api-key'], 'test-provider-key')
       else assert.equal(options.headers.Authorization, 'Bearer test-openai-key')
@@ -61,12 +64,12 @@ function mockServices({ text = JSON.stringify(meal), count = 0, providerStatus =
     }
     throw new Error(`Unexpected test URL: ${url}`)
   }
-  return { inserts, logs, providerCalls: () => providerCalls, attempts: () => attempts }
+  return { inserts, logs, providerBodies, providerCalls: () => providerCalls, attempts: () => attempts }
 }
-function request() {
+function request(overrides = {}) {
   return ai.request('/analyze-meal', { method: 'POST', headers: {
     Authorization: 'Bearer test-token', 'Content-Type': 'application/json',
-  }, body: JSON.stringify({ description: 'a bowl of rice', meal_type: 'lunch', locale: 'en' }) })
+  }, body: JSON.stringify({ description: 'a bowl of rice', meal_type: 'lunch', locale: 'en', ...overrides }) })
 }
 
 test('requires authentication without calling any upstream service', async () => {
@@ -160,6 +163,22 @@ test('the OpenAI branch uses the configured key and validates before saving', as
 })
 
 for (const provider of ['claude', 'openai']) {
+  test(`${provider} receives the photo and notes together, without saving the image`, async () => {
+    const services = mockServices({ provider })
+    const response = await request({ image, description: 'I ate half of the rice.' })
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).total_calories, 200)
+    const content = services.providerBodies[0].messages[0].content
+    if (provider === 'claude') assert.deepEqual(content[0], { type: 'image', source: { type: 'base64', ...image } })
+    else assert.deepEqual(content[0], { type: 'image_url', image_url: { url: `data:${image.media_type};base64,${image.data}`, detail: 'high' } })
+    assert.match(content[1].text, /I ate half of the rice/)
+    assert.match(content[1].text, /attached photo/)
+    assert.equal(services.attempts(), 1)
+    assert.equal(services.inserts[0].metadata.has_photo, true)
+    assert.ok(!JSON.stringify(services.inserts).includes(image.data))
+    assert.ok(!JSON.stringify(services.logs).includes(image.data))
+  })
+
   test(`${provider} requests abort at the configured deadline without saving a report`, async () => {
     const originalTimeout = AbortSignal.timeout
     AbortSignal.timeout = milliseconds => {
@@ -174,5 +193,35 @@ for (const provider of ['claude', 'openai']) {
       assert.equal(services.inserts.length, 0)
       assert.equal(services.attempts(), 1)
     } finally { AbortSignal.timeout = originalTimeout }
+  })
+}
+
+test('a photo can be analyzed without notes, while plain text remains supported', async () => {
+  const services = mockServices()
+  assert.equal((await request({ image, description: '' })).status, 200)
+  assert.match(services.providerBodies[0].messages[0].content[1].text, /no additional notes/)
+  assert.equal((await request()).status, 200)
+  assert.equal(typeof services.providerBodies[1].messages[0].content, 'string')
+  assert.equal(services.inserts[1].metadata.has_photo, false)
+})
+
+for (const [input, code, status] of [
+  [{ description: '  ' }, 'ai_meal_input_required', 400],
+  [{ image: { ...image, media_type: 'image/svg+xml' } }, 'ai_invalid_image', 400],
+  [{ image: { ...image, media_type: 'image/jpeg' } }, 'ai_invalid_image', 400],
+  [{ image: { ...image, data: 'https://example.test/photo.png' } }, 'ai_invalid_image', 400],
+  [{ image: { ...image, data: 'not_base64!' } }, 'ai_invalid_image', 400],
+  [{ image: { ...image, data: 'aGVsbG8=' } }, 'ai_invalid_image', 400],
+  [{ description: 'x'.repeat(501) }, 'ai_invalid_input', 400],
+  [{ image: { ...image, data: Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64') } }, 'ai_image_too_large', 413],
+]) {
+  test(`invalid meal input fails before quota reservation: ${code}, ${status}`, async () => {
+    const services = mockServices()
+    const response = await request(input)
+    assert.equal(response.status, status)
+    assert.deepEqual(await response.json(), { error: code })
+    assert.equal(services.attempts(), 0)
+    assert.equal(services.providerCalls(), 0)
+    assert.equal(services.inserts.length, 0)
   })
 }
