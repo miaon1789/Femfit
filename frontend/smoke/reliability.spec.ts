@@ -1,54 +1,5 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test'
-
-const idA = '00000000-0000-0000-0000-000000000001'
-const idB = '00000000-0000-0000-0000-000000000002'
-const user = (id: string) => ({ id, aud: 'authenticated', role: 'authenticated',
-  email: `${id === idA ? 'a' : 'b'}@example.test`, app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' })
-const token = (id: string) => [
-  Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'),
-  Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url'),
-  'synthetic-signature',
-].join('.')
-
-async function mockAPI(context: BrowserContext) {
-  const state = { current: idA, mealFailure: false, passwords: [] as string[], profiles: [] as string[] }
-  await context.route('**/*', async route => {
-    const request = route.request()
-    const url = new URL(request.url())
-    if (url.origin === 'http://127.0.0.1:4174') return route.continue()
-    if (url.origin !== 'https://femfit-smoke.supabase.co') return route.abort('blockedbyclient')
-    let body: unknown = []
-    let status = 200
-    if (url.pathname === '/auth/v1/token') {
-      state.current = request.postDataJSON().email.startsWith('b@') ? idB : idA
-      body = { access_token: token(state.current), refresh_token: 'synthetic-refresh',
-        expires_in: 3600, token_type: 'bearer', user: user(state.current) }
-    } else if (url.pathname === '/auth/v1/user') {
-      if (request.method() === 'PUT') state.passwords.push(request.postDataJSON().password)
-      body = user(state.current)
-    } else if (url.pathname === '/auth/v1/logout') body = {}
-    else if (url.pathname === '/rest/v1/users') {
-      const id = url.searchParams.get('id')?.replace('eq.', '') ?? state.current
-      state.profiles.push(id)
-      body = { id, nickname: id === idA ? 'Demo A' : 'Demo B', email: user(id).email,
-        onboarding_completed: true, birth_year: 1995, birth_month: 1,
-        height_cm: 170, weight_kg: 65, target_weight_kg: 60, activity_level: 'sedentary',
-        weight_goal_pace: 'slow', last_period_date: null, avg_cycle_days: 28, avg_period_days: 5 }
-    } else if (url.pathname === '/rest/v1/meal_logs' && state.mealFailure) {
-      status = 500; body = { message: 'Injected meal read failure', code: 'MOCK' }
-    } else if (url.pathname === '/rest/v1/weight_logs') body = null
-    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body),
-      headers: { 'access-control-allow-origin': '*' } })
-  })
-  return state
-}
-async function login(page: Page, account = 'a') {
-  await page.goto('/auth')
-  await page.getByLabel('Email', { exact: true }).fill(`${account}@example.test`)
-  await page.getByLabel('Password', { exact: true }).fill('synthetic-password')
-  await page.locator('form').getByRole('button', { name: 'Log in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: `Hi, Demo ${account.toUpperCase()} 👋` })).toBeVisible()
-}
+import { test, expect } from '@playwright/test'
+import { idA, idB, token, mockAPI, login } from './fixtures'
 
 test('account switching clears the old profile and private response cache', async ({ page, context }) => {
   const api = await mockAPI(context)

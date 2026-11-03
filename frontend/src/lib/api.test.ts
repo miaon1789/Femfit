@@ -17,6 +17,10 @@ describe('meal analysis errors', () => {
     [502, { error: 'ai_invalid_response' }, 'food.aiInvalidResponse'],
     [502, { error: 'ai_analysis_failed' }, 'food.aiFailed'],
     [503, { error: 'ai_quota_unavailable' }, 'food.aiQuotaUnavailable'],
+    [413, { error: 'ai_image_too_large' }, 'food.photoTooLarge'],
+    [400, { error: 'ai_invalid_image' }, 'food.photoFailed'],
+    [400, { error: 'ai_meal_input_required' }, 'food.errDescribe'],
+    [400, { error: 'ai_invalid_input' }, 'food.aiInputInvalid'],
     [500, { error: 'AI 分析失败，请重试' }, 'food.aiFailed'],
     [500, null, 'food.aiFailed'],
   ])('maps status %s to a local translation key', async (status, body, key) => {
@@ -47,5 +51,16 @@ describe('meal analysis errors', () => {
     vi.stubGlobal('fetch', fetch)
     expect(await analyzeMeal(input)).toEqual(result)
     expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token')
+  })
+
+  it('sends an image and optional notes together, with cancellation support', async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ foods: [], total_calories: 0, cycle_tip: '' }))
+    vi.stubGlobal('fetch', fetch)
+    const controller = new AbortController()
+    const image = { media_type: 'image/jpeg' as const, data: '/9j/AA==' }
+    await analyzeMeal({ ...input, image }, controller.signal)
+    const options = fetch.mock.calls[0][1]
+    expect(JSON.parse(options.body)).toMatchObject({ description: 'rice', image })
+    expect(options.signal).toBe(controller.signal)
   })
 })

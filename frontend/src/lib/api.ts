@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { MealType } from '@/types'
+import type { MealPhotoInput } from './mealPhoto'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000'
 
@@ -41,6 +42,7 @@ export interface AIMealResult {
 }
 
 type MealErrorKey = 'food.aiFailed' | 'food.aiDailyLimit' | 'food.aiInvalidResponse' | 'food.aiSignIn' | 'food.aiQuotaUnavailable'
+  | 'food.photoTooLarge' | 'food.photoFailed' | 'food.errDescribe' | 'food.aiInputInvalid'
 
 export class MealAnalysisError extends Error {
   constructor(readonly translationKey: MealErrorKey) {
@@ -55,20 +57,26 @@ export function getMealAnalysisErrorKey(error: unknown): MealErrorKey {
 /** Analyze a meal, exposing stable translation keys instead of server prose. */
 export async function analyzeMeal(input: {
   description: string
+  image?: MealPhotoInput
   meal_type: MealType
   date?: string
   locale?: 'en' | 'zh'
-}): Promise<AIMealResult> {
+}, signal?: AbortSignal): Promise<AIMealResult> {
   const res = await authedFetch('/api/ai/analyze-meal', {
     method: 'POST',
     body: JSON.stringify(input),
+    signal,
   })
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     const code = body?.error
-    const key: MealErrorKey = res.status === 429 ? 'food.aiDailyLimit'
+    const key: MealErrorKey = res.status === 413 ? 'food.photoTooLarge'
+      : res.status === 429 ? 'food.aiDailyLimit'
       : res.status === 401 ? 'food.aiSignIn'
+      : code === 'ai_invalid_image' ? 'food.photoFailed'
+      : code === 'ai_meal_input_required' ? 'food.errDescribe'
+      : code === 'ai_invalid_input' ? 'food.aiInputInvalid'
       : code === 'ai_quota_unavailable' ? 'food.aiQuotaUnavailable'
       : code === 'ai_invalid_response' ? 'food.aiInvalidResponse'
       : 'food.aiFailed'

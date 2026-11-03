@@ -46,7 +46,7 @@ body's rhythm instead of fighting it.
 | **Exercise logging** | Manual steps (auto-tiered) + workout type/duration, designed to later sync from Health Connect / Apple Health. |
 | **Food logging** | Per-meal entries with calorie/macro totals against the adaptive daily target, backed by a **146-item bilingual food database** (Chinese / Western / Asian) with instant search and per-serving scaling. |
 | **External food sources** | Barcode lookup through Open Food Facts and optional USDA FoodData Central search, with normalized portions and explicit errors when a source is unavailable. |
-| **AI meal analysis** | Natural-language meal parsing ("a bowl of beef noodles with an egg") into foods + calories + macros, with cycle-aware tips — wired end-to-end into the food UI and **localized to the user's language**. |
+| **AI meal analysis** | Take or choose a meal photo, add optional portion notes, or use text alone. Review estimated foods, portions, calories and macros before saving, with cycle-aware tips and English/Chinese UI. Photos are resized locally and sent to the AI provider. FemFit stores the estimate, not the photo. |
 | **Bilingual (i18n)** | Full English / 中文 interface via `react-i18next` (default English), including locale-aware AI responses and food names. |
 | **PWA** | Installable and mobile-first, with an offline app shell. Private health and auth APIs require a network connection and are never cached by the service worker. |
 
@@ -109,6 +109,10 @@ These are the parts worth reading — they go beyond CRUD.
   per-user daily quota and a validated persistence boundary. Zod rejects malformed
   meal data, the server recalculates calorie totals, and stable error codes map to
   English and Chinese UI messages. Regression tests cover parsing and route failures.
+- **Photo input**: `frontend/src/lib/mealPhoto.ts` resizes and re-encodes photos to
+  JPEG before upload. `backend/src/lib/mealInput.ts` bounds actual request bytes,
+  checks canonical base64 and file signatures before reserving AI quota, and keeps
+  image data out of reports. Both existing providers receive image and text blocks.
 - **Security** — Postgres Row Level Security, server-only service-role key, JWT
   verification middleware, secrets isolated to environment variables.
 
@@ -190,6 +194,12 @@ for setup, observed local results and deployment order.
 Production browser smoke tests use synthetic accounts and intercepted APIs. They cover
 account switching, recovery links, failed meal reads and the real service worker's
 cache behavior. They do not require a live Supabase project.
+
+Photo-meal smoke cases also exercise gallery/camera file inputs, native browser image
+resizing, photo-plus-notes submission, explicit save and reload, stale-estimate
+invalidation, local file rejection and retry. These synthetic checks do not establish
+live model accuracy or physical phone-camera behavior. See the [photo feature record](engineering/changes/meal-photo-analysis.md)
+for image limits, privacy decisions and release checks.
 
 Browser tests cover login/logout, food persistence, deletion and failed-save recovery using a separate Supabase test project. Real E2E execution requires the test project credentials and is not implied by the unit CI result.
 
