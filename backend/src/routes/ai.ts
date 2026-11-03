@@ -4,32 +4,11 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabase.js'
 import { authMiddleware } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
+import { InvalidAIResponse, parseMealResult } from '../lib/aiMeal.js'
 
 const app = new Hono<AppEnv>()
 
 app.use('*', authMiddleware)
-
-const AI_DAILY_LIMIT = 3  // 免费用户每日 3 次
-
-// 检查并记录 AI 调用次数（防止滥用）
-async function checkRateLimit(userId: string): Promise<boolean> {
-  const today = new Date().toISOString().split('T')[0]
-  const { count } = await supabase
-    .from('ai_reports')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('generated_at', `${today}T00:00:00Z`)
-
-  // 获取用户套餐
-  const { data: user } = await supabase
-    .from('users')
-    .select('subscription_tier')
-    .eq('id', userId)
-    .single()
-
-  if (user?.subscription_tier === 'premium') return true
-  return (count ?? 0) < AI_DAILY_LIMIT
-}
 
 const MealAnalysisSchema = z.object({
   description: z.string().min(1).max(500),
@@ -44,7 +23,7 @@ interface CycleUser {
   avg_period_days: number | null
 }
 
-/** 按语言构建饮食分析 prompt（英文模式要求英文输出）。 */
+/** Build the meal prompt in the user's selected language. */
 function buildMealPrompt(description: string, user: CycleUser | null, locale: 'en' | 'zh'): string {
   if (locale === 'en') {
     const cycleContext = user?.last_period_date
@@ -99,21 +78,26 @@ ${cycleContext}
 
 /**
  * POST /api/ai/analyze-meal
- * 自然语言饮食分析
+ * Analyze a natural-language meal description.
  */
 app.post('/analyze-meal', zValidator('json', MealAnalysisSchema), async (c) => {
   const userId = c.get('userId')
 
-  const allowed = await checkRateLimit(userId)
+  // A service-only RPC reserves quota atomically before contacting the provider.
+  const { data: allowed, error: quotaError } = await supabase.rpc('reserve_ai_meal_attempt', { p_user_id: userId })
+  if (quotaError || typeof allowed !== 'boolean') {
+    console.error('AI quota reservation failed')
+    return c.json({ error: 'ai_quota_unavailable' }, 503)
+  }
   if (!allowed) {
     return c.json({
-      error: '今日 AI 分析次数已用完（免费版每日 3 次），请明天再试或升级高级版。'
+      error: 'ai_daily_limit'
     }, 429)
   }
 
   const { description, meal_type, date, locale } = c.req.valid('json')
 
-  // 获取用户当前周期阶段信息（用于 AI prompt）
+  // Fetch cycle context for the prompt.
   const { data: user } = await supabase
     .from('users')
     .select('last_period_date, avg_cycle_days, avg_period_days')
@@ -124,10 +108,10 @@ app.post('/analyze-meal', zValidator('json', MealAnalysisSchema), async (c) => {
 
   try {
     const aiResponse = await callAI(prompt)
-    const parsed = parseAIJson(aiResponse)
+    const parsed = parseMealResult(aiResponse)
 
-    // 存储 AI 分析结果
-    const { data: report } = await supabase
+    // Persist only validated data with the server-calculated calorie total.
+    const { data: report, error: saveError } = await supabase
       .from('ai_reports')
       .insert({
         user_id: userId,
@@ -139,32 +123,24 @@ app.post('/analyze-meal', zValidator('json', MealAnalysisSchema), async (c) => {
       .select()
       .single()
 
+    if (saveError || !report) {
+      console.error('AI report persistence failed')
+      return c.json({ error: 'ai_report_save_failed' }, 500)
+    }
     return c.json({ ...parsed, report_id: report?.id })
   } catch (err) {
-    console.error('AI analysis error:', err)
-    return c.json({ error: 'AI 分析失败，请重试' }, 500)
+    if (err instanceof InvalidAIResponse) {
+      // Log field paths and issue codes, without meal text or health data.
+      console.error('Invalid AI meal response:', err.issues)
+      return c.json({ error: 'ai_invalid_response' }, 502)
+    }
+    console.error('AI analysis failed')
+    return c.json({ error: 'ai_analysis_failed' }, 502)
   }
 })
 
 /**
- * 健壮地从 AI 返回中解析 JSON。
- * 大模型常把 JSON 包进 ```json``` 代码块或加少量说明文字，
- * 直接 JSON.parse 会失败——这里先剥离代码块、再回退到首个 {…最后一个 }。
- */
-function parseAIJson<T = Record<string, unknown>>(text: string): T {
-  let t = text.trim()
-  const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
-  if (fence) t = fence[1].trim()
-  if (!t.startsWith('{')) {
-    const s = t.indexOf('{')
-    const e = t.lastIndexOf('}')
-    if (s >= 0 && e > s) t = t.slice(s, e + 1)
-  }
-  return JSON.parse(t) as T
-}
-
-/**
- * 统一 AI 调用封装——根据环境变量选择服务商
+ * Select the provider through server-side configuration.
  */
 async function callAI(prompt: string): Promise<string> {
   const provider = process.env.AI_PROVIDER ?? 'claude'
@@ -185,6 +161,7 @@ async function callClaude(prompt: string): Promise<string> {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
@@ -203,6 +180,7 @@ async function callOpenAI(prompt: string): Promise<string> {
       'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
     },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],

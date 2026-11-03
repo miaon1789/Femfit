@@ -411,8 +411,6 @@ export function OnboardingFlow() {
     setSaving(true)
     try {
       const profileData = {
-        id: user.id,
-        email: user.email ?? '',
         nickname: basic.nickname.trim(),
         birth_year: parseInt(basic.birthYear),
         birth_month: parseInt(basic.birthMonth),
@@ -426,13 +424,12 @@ export function OnboardingFlow() {
         avg_cycle_days: parseInt(cycle.avgCycleDays),
         avg_period_days: parseInt(cycle.avgPeriodDays),
         onboarding_completed: true,
-        subscription_tier: 'free' as const,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
       const { data, error } = await supabase
         .from('users')
-        .upsert(profileData)
+        .update(profileData)
+        .eq('id', user.id)
         .select()
         .single()
       if (error) throw error

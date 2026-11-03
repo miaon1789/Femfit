@@ -38,7 +38,7 @@ export function FoodTab() {
   const [copying, setCopying] = useState(false)
   const [copyMessage, setCopyMessage] = useState('')
 
-  const { loading, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor } =
+  const { loading, error, refetch, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor } =
     useFoodLogs(selectedDate)
 
   const calorieTarget = useCalorieTarget()
@@ -58,10 +58,10 @@ export function FoodTab() {
             {isToday ? t('food.today') : formatDateShort(selectedDate, lang)}
           </p>
           <p data-testid="daily-calories" className="text-xl font-bold text-gray-900">
-            {totalCalories.toLocaleString()}
-            <span className="text-sm text-gray-400 font-normal ml-1">{t('food.kcalEaten')}</span>
+            {loading ? '…' : error ? t('food.loadFailed') : <>{totalCalories.toLocaleString()}
+              <span className="text-sm text-gray-400 font-normal ml-1">{t('food.kcalEaten')}</span></>}
           </p>
-          {isToday && target && (
+          {isToday && target && !loading && !error && (
             <p className="text-xs text-gray-400 mt-0.5">
               {t('food.targetRemaining', {
                 target: target.toLocaleString(),
@@ -81,7 +81,7 @@ export function FoodTab() {
       </div>
 
       {/* 摄入进度条（仅今天） */}
-      {isToday && target && (
+      {isToday && target && !loading && !error && (
         <div className="px-1">
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
@@ -102,6 +102,7 @@ export function FoodTab() {
 
       {/* AI 识别入口 */}
       <button
+        disabled={loading || !!error}
         onClick={() => { setAiMeal(guessMeal()); setAiOpen(true) }}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-primary-200 bg-primary-50 text-primary-600 text-sm font-medium hover:bg-primary-100 transition-colors"
       >
@@ -114,6 +115,11 @@ export function FoodTab() {
         <div className="text-center py-10 text-gray-400">
           <div className="text-3xl animate-pulse mb-2">🥗</div>
           <p className="text-sm">{t('common.loading')}</p>
+        </div>
+      ) : error ? (
+        <div role="alert" className="bg-red-50 rounded-2xl p-4 text-sm text-red-600">
+          <p>{t(error)}</p>
+          <button onClick={() => void refetch()} className="mt-2 underline">{t('food.retry')}</button>
         </div>
       ) : (
         MEAL_ORDER.map((mealType) => {
@@ -168,7 +174,7 @@ export function FoodTab() {
       )}
 
       {/* 宏量营养汇总（有记录时显示） */}
-      {totalCalories > 0 && <MacroSummary entries={MEAL_ORDER.flatMap((tab) => entriesFor(tab))} />}
+      {!loading && !error && totalCalories > 0 && <MacroSummary entries={MEAL_ORDER.flatMap((tab) => entriesFor(tab))} />}
 
       {/* AddFoodSheet */}
       {addingTo && (

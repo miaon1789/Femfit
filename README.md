@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/miaon1789/femfit/actions/workflows/ci.yml/badge.svg)](https://github.com/miaon1789/femfit/actions/workflows/ci.yml)
 
-**A menstrual-cycle-aware health & nutrition tracker for women**
+**A web app that helps women manage their weight and body composition, with calorie targets that adapt to their menstrual cycle.**
 
 Most diet and fitness apps are built on research conducted on men. FemFit treats the
 menstrual cycle as a first-class variable, dynamically adapting calorie targets and
@@ -45,9 +45,10 @@ body's rhythm instead of fighting it.
 | **Body measurements** | Chest / waist / navel / hip / thigh tracking with waist–hip ratio. |
 | **Exercise logging** | Manual steps (auto-tiered) + workout type/duration, designed to later sync from Health Connect / Apple Health. |
 | **Food logging** | Per-meal entries with calorie/macro totals against the adaptive daily target, backed by a **146-item bilingual food database** (Chinese / Western / Asian) with instant search and per-serving scaling. |
+| **External food sources** | Barcode lookup through Open Food Facts and optional USDA FoodData Central search, with normalized portions and explicit errors when a source is unavailable. |
 | **AI meal analysis** | Natural-language meal parsing ("a bowl of beef noodles with an egg") into foods + calories + macros, with cycle-aware tips — wired end-to-end into the food UI and **localized to the user's language**. |
 | **Bilingual (i18n)** | Full English / 中文 interface via `react-i18next` (default English), including locale-aware AI responses and food names. |
-| **PWA** | Installable, offline-capable, mobile-first. |
+| **PWA** | Installable and mobile-first, with an offline app shell. Private health and auth APIs require a network connection and are never cached by the service worker. |
 
 ## Screenshots
 
@@ -104,8 +105,10 @@ These are the parts worth reading — they go beyond CRUD.
   adjustment, all floored at `max(1200, 0.9 × BMR)` to avoid unsafe targets. It also
   **auto-detects activity level** from the last 14 days of real step/workout data instead
   of asking the user to self-select.
-- **`backend/src/routes/ai.ts`** — provider-agnostic AI layer, structured-JSON prompt,
-  per-user daily quota, results persisted for reuse.
+- **`backend/src/routes/ai.ts`** and **`backend/src/lib/aiMeal.ts`**: provider selection,
+  per-user daily quota and a validated persistence boundary. Zod rejects malformed
+  meal data, the server recalculates calorie totals, and stable error codes map to
+  English and Chinese UI messages. Regression tests cover parsing and route failures.
 - **Security** — Postgres Row Level Security, server-only service-role key, JWT
   verification middleware, secrets isolated to environment variables.
 
@@ -163,14 +166,51 @@ npm run dev
 # frontend → http://localhost:5173   backend → http://localhost:3000
 ```
 
-**Tests** — the cycle & calorie engines are covered by Vitest unit tests, run in CI on
-every push/PR:
+**Verification** runs locally and in CI on pull requests and pushes to `main`:
 
 ```bash
-cd frontend && npm test        # Unit and hook regression tests
+npm run verify                # Typechecks, unit tests and agent-hook regression tests
+npm run build                 # Frontend and backend production builds
+npm run test:smoke --prefix frontend  # Production browser checks with synthetic APIs
 ```
 
+Frontend Vitest tests cover the cycle and calorie engines, food portions and search,
+data hooks, dashboard behavior and localized AI errors. Backend tests cover AI JSON
+parsing, Zod validation, server-calculated totals and persistence failures, plus Open
+Food Facts and USDA normalization and the distinction between unavailable sources and
+empty results. Agent-hook tests exercise protected paths, blocking exit codes and
+bounded Stop retries. These tests mock external services and need no live AI keys.
+
+The separate database CI job applies the schema and migrations to an empty PostgreSQL
+test database. It checks profile column permissions, food-library RLS and atomic quota
+reservations across ten concurrent connections. Run it locally with `npm run test:db`
+and an empty local `femfit_test` database. See the [reliability change record](engineering/changes/reliability-hardening.md)
+for setup, observed local results and deployment order.
+
+Production browser smoke tests use synthetic accounts and intercepted APIs. They cover
+account switching, recovery links, failed meal reads and the real service worker's
+cache behavior. They do not require a live Supabase project.
+
 Browser tests cover login/logout, food persistence, deletion and failed-save recovery using a separate Supabase test project. Real E2E execution requires the test project credentials and is not implied by the unit CI result.
+
+## How I built this with AI
+
+I use Claude Code and Codex to help implement FemFit. Product decisions and acceptance
+of the final diff stay with me. The repository now includes a repeatable workflow:
+acceptance criteria, a scoped plan, implementation, deterministic verification,
+independent read-only review and owner handoff before committing.
+
+The AI meal-analysis change is a concrete example: model output is treated as untrusted
+data, checked with Zod before saving, and its calorie total is replaced with a server
+calculation. Regression tests cover formatting variations and invalid structures.
+Invalid responses produce localized errors. Diagnostic logs contain issue paths and
+codes rather than raw meal or cycle data.
+
+See the [agent workflow](engineering/agent-workflow.md) for the shared `ship-change`
+skill, Claude hooks and their limitations, and the [worked change record](engineering/changes/ai-meal-validation.md)
+for acceptance criteria, validation evidence and review results. Claude hooks run in
+Claude Code. Codex uses the shared skill, verification command and its configured
+sandbox. CI runs the same verification command after push.
 
 ## Roadmap
 

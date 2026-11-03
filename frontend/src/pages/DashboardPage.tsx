@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
@@ -41,12 +41,13 @@ export function DashboardPage() {
   const { user, signOut } = useAuthStore()
   const { profile, fetchProfile, loading } = useUserStore()
   const navigate = useNavigate()
+  const [logoutError, setLogoutError] = useState(false)
 
   const today = dayjs().format('YYYY-MM-DD')
   const { log: latestWeightLog } = useLatestWeightLog()
   const { logs: exerciseLogs } = useExerciseLogs(14)
   const calorieTarget = useCalorieTarget()
-  const { totalCalories: todayIntake } = useFoodLogs(today)
+  const { totalCalories: todayIntake, loading: intakeLoading, error: intakeError, refetch: refetchIntake } = useFoodLogs(today)
 
   useEffect(() => {
     if (user && !profile) fetchProfile(user.id)
@@ -194,6 +195,11 @@ export function DashboardPage() {
               </div>
 
               {/* 摄入进度 */}
+              {intakeLoading ? <p role="status" className="text-sm text-gray-400">{t('common.loading')}</p>
+                : intakeError ? <div role="alert" className="text-sm text-red-500">
+                  <p>{t(intakeError)}</p>
+                  <button onClick={() => void refetchIntake()} className="mt-1 underline">{t('food.retry')}</button>
+                </div> : <>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className={`h-2 rounded-full transition-all duration-500 ${
@@ -206,6 +212,7 @@ export function DashboardPage() {
                 <span>{todayIntake > 0 ? t('dashboard.intakeSoFar', { kcal: todayIntake.toLocaleString() }) : t('dashboard.noIntake')}</span>
                 <span>{t('dashboard.remaining', { kcal: Math.max(0, calorieTarget.finalTarget - todayIntake).toLocaleString() })}</span>
               </div>
+              </>}
             </>
           ) : (
             <p className="text-sm text-gray-400">{t('dashboard.calculating')}</p>
@@ -294,7 +301,8 @@ export function DashboardPage() {
         </div>
 
         {/* 退出登录（开发期保留） */}
-        <Button variant="ghost" fullWidth onClick={signOut} className="text-gray-300 text-xs">
+        {logoutError && <p role="alert" className="text-sm text-red-500">{t('auth.signOutFailed')}</p>}
+        <Button variant="ghost" fullWidth onClick={() => { void signOut().catch(() => setLogoutError(true)) }} className="text-gray-300 text-xs">
           {t('common.logout')}
         </Button>
       </div>

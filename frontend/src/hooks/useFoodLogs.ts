@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import type { MealLog, FoodEntry, MealType } from '@/types'
@@ -19,23 +19,45 @@ export interface AddFoodPayload {
 
 export function useFoodLogs(date: string) {
   const { user } = useAuthStore()
-  const [meals, setMeals] = useState<MealLogWithEntries[]>([])
-  const [loading, setLoading] = useState(true)
+  const userId = user?.id
+  const key = `${userId ?? ''}:${date}`
+  const [result, setResult] = useState<{
+    key: string; meals: MealLogWithEntries[]; loading: boolean; error: string | null
+  }>({ key, meals: [], loading: !!userId, error: null })
+  const request = useRef(0)
+  const current = result.key === key
+  const meals = current ? result.meals : []
+  const loading = current ? result.loading : !!userId
+  const error = current ? result.error : null
+  const setMeals = (update: (meals: MealLogWithEntries[]) => MealLogWithEntries[]) => {
+    setResult(prev => prev.key === key ? { ...prev, meals: update(prev.meals) } : prev)
+  }
 
   const fetch = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    const { data } = await supabase
-      .from('meal_logs')
-      .select('*, food_entries(*)')
-      .eq('user_id', user.id)
-      .eq('date', date)
-      .order('created_at', { ascending: true })
-    setMeals((data as MealLogWithEntries[]) ?? [])
-    setLoading(false)
-  }, [user, date])
+    const version = ++request.current
+    if (!userId) {
+      setResult({ key, meals: [], loading: false, error: null })
+      return
+    }
+    setResult(prev => ({ key, meals: prev.key === key ? prev.meals : [], loading: true, error: null }))
+    try {
+      const { data, error: readError } = await supabase
+        .from('meal_logs')
+        .select('*, food_entries(*)')
+        .eq('user_id', userId)
+        .eq('date', date)
+        .order('created_at', { ascending: true })
+      if (readError) throw readError
+      if (version === request.current) setResult({ key, meals: (data as MealLogWithEntries[]) ?? [], loading: false, error: null })
+    } catch {
+      if (version === request.current) setResult(prev => ({ ...prev, loading: false, error: 'food.loadFailed' }))
+    }
+  }, [userId, date, key])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    void fetch()
+    return () => { request.current++ }
+  }, [fetch])
 
   const addFoodEntries = async (mealType: MealType, payloads: AddFoodPayload[]) => {
     if (!user) throw new Error('unauthorized')
@@ -100,5 +122,5 @@ export function useFoodLogs(date: string) {
     meals.filter(m => m.meal_type === mealType).flatMap(m => m.food_entries)
   const mealCalories = (mealType: MealType) => Math.round(entriesFor(mealType).reduce((sum, e) => sum + Number(e.calories), 0))
 
-  return { meals, loading, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor, refetch: fetch }
+  return { meals, loading, error, addFoodEntry, addFoodEntries, copyPreviousMeal, deleteFoodEntry, totalCalories, mealCalories, entriesFor, refetch: fetch }
 }

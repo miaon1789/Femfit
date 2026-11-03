@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:smoke": "playwright test --config playwright.smoke.config.ts",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json"

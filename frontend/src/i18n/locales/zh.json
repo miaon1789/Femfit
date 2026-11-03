@@ -48,7 +48,13 @@
     "forgotIntro": "输入注册邮箱，我们将发送密码重置链接。",
     "forgotEmailPlaceholder": "请输入注册邮箱",
     "sendResetEmail": "发送重置邮件",
-    "sendFailed": "发送失败，请重试"
+    "sendFailed": "发送失败，请重试",
+    "newPassword": "新密码",
+    "signOutFailed": "退出登录失败，请检查网络后重试。",
+    "updatePassword": "保存新密码",
+    "resetSuccess": "密码已更新。",
+    "resetFailed": "密码更新失败，请重试或重新申请重置链接。",
+    "resetLinkInvalid": "重置链接无效或已过期，请重新申请。"
   },
   "nav": {
     "weight": "体重",
@@ -303,6 +309,12 @@
     "aiPlaceholder": "例如：中午吃了一碗兰州拉面，加了一个鸡蛋和一碟小菜",
     "errDescribe": "先描述一下你吃了什么",
     "aiFailed": "AI 分析失败，请重试",
+    "aiDailyLimit": "今天的 3 次免费 AI 分析机会已用完，请明天再试。",
+    "aiQuotaUnavailable": "AI 分析暂时不可用，请稍后再试。",
+    "loadFailed": "饮食记录加载失败，已保存的数据可能仍在，请重试。",
+    "retry": "重试",
+    "aiInvalidResponse": "AI 返回的饮食估算不完整或格式有误，请重试。",
+    "aiSignIn": "请重新登录后再分析饮食。",
     "result": "识别结果",
     "noFoodsFound": "没识别出食物，换个说法再试试",
     "reanalyze": "重新识别",

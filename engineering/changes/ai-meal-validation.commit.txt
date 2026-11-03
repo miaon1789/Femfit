@@ -1,0 +1,32 @@
+Validate AI meal estimates and add a repeatable agent workflow
+
+Validate parsed AI meals with Zod before storing reports. Require finite,
+nonnegative nutrients and positive quantities. Recalculate calorie totals
+on the server and reject overflowing sums. Surface report-save failures.
+Map meal-analysis failures to English and Chinese translation keys.
+Log validation paths and codes without raw meal or cycle data.
+
+Add a shared ship-change skill, Claude edit and Stop hooks, a read-only
+reviewer definition, a verification runner and CI using the same checks.
+Align README positioning, explain the AI workflow and test coverage, and
+translate comments in the highlighted engine files.
+
+Validation:
+- npm run verify: passed, 76 frontend, 37 backend and 5 hook tests.
+- Frontend and browser-test typechecks, backend compilation: passed.
+- npm run build: passed for frontend and backend.
+- Skill validator, Stop-hook CLI and git diff --check: passed.
+
+Independent review:
+- Fresh read-only reviewer found no actionable implementation issues.
+- Requested final evidence in the change record, which is now recorded.
+- No unresolved review disagreements.
+
+Limits:
+- AI and database I/O are mocked. Live accuracy, database isolation and
+  browser E2E were not exercised. No OpenAI-branch route test was added.
+- Claude hook activation still needs checking inside the client.
+- Local hooks prevent common mistakes and are not a full shell sandbox.
+- Existing quota concurrency behavior is unchanged.
+- Vite reports bundle-size and stale Browserslist-data warnings.
+- Deployment and remote CI have not been exercised by this local change.
